@@ -1,4 +1,7 @@
 package com.worldcup.hotelbooking.booking.bookingroom;
 
-public interface BookingRoomRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> {
+
 }

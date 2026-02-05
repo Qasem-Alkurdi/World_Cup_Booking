@@ -1,4 +1,10 @@
 package com.worldcup.hotelbooking.booking.booking;
 
-public interface BookingRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface BookingRepository extends JpaRepository<Booking, Long> {
+    public Optional<Booking> findByBookingReference(String name);
+
 }
