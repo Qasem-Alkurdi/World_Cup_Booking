@@ -65,9 +65,9 @@ public class BookingController {
         return ResponseEntity.ok(BookingMapper.toDto(updatedBooking));
     }
 
-    @PutMapping("/{id}/cancel")
-    public ResponseEntity<BookingResponseDto> cancelBooking(@PathVariable Long id) {
-        Booking updatedBooking = bookingService.cancelBooking(id);
+    @PutMapping("/{id}/cancel/{reason}")
+    public ResponseEntity<BookingResponseDto> cancelBooking(@PathVariable Long id, @PathVariable String reason) {
+        Booking updatedBooking = bookingService.cancelBooking(id, reason);
         return ResponseEntity.ok(BookingMapper.toDto(updatedBooking));
     }
 }
