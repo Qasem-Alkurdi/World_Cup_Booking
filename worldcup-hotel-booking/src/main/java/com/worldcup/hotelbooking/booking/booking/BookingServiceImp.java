@@ -75,7 +75,7 @@ public class BookingServiceImp implements BookingService {
     @Transactional(isolation = Isolation.SERIALIZABLE)//to run all the code in this method as a single transaction and to prevent dirty reads, non-repeatable reads, and phantom reads, ensuring data integrity during the booking process.
     public Booking createBooking(Booking booking) {
         booking.setTotalPrice(calculateTotalPrice(booking, booking.getCheckInDate(), booking.getCheckOutDate()));
-        booking.setStatus("PENDING");
+        booking.setStatus(Booking.BookingStatus.PENDING);
         if(booking.getCheckOutDate().isBefore(booking.getCheckInDate())) {
             throw new IllegalArgumentException("Check-out date cannot be before check-in date");
         }
@@ -127,12 +127,12 @@ public class BookingServiceImp implements BookingService {
     @Override
     public Booking cancelBooking(Long Id, String reason) {
         Booking booking = bookingRepository.findById(Id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + Id));
-        if(booking.getStatus().equals("CANCELLED")) {
+        if(booking.getStatus().equals(Booking.BookingStatus.CANCELLED)) {
             throw new IllegalStateException("Booking is already cancelled");
         }
-        booking.setStatus("CANCELLED");
+        booking.setStatus(Booking.BookingStatus.CANCELLED);
         booking.setCancelReason(reason);
-        booking.setCancelledAt(java.time.LocalDate.now());
+        booking.setCancelledAt(java.time.LocalDateTime.now());
         booking.setCancelledBy(booking.getUser().getName());
         return bookingRepository.save(booking);
     }
@@ -146,10 +146,19 @@ public class BookingServiceImp implements BookingService {
         if(booking.getStatus().equals("CANCELLED")) {
             throw new IllegalStateException("Cancelled booking cannot be confirmed");
         }
-        booking.setStatus("CONFIRMED");
-        booking.setConfirmedAt(java.time.LocalDate.now());
+        booking.setStatus(Booking.BookingStatus.CONFIRMED);
+        booking.setConfirmedAt(java.time.LocalDateTime.now());
         return bookingRepository.save(booking);
     }
 
+    public void addBookingRoom(BookingRoom bookingRoom) {
+        Booking booking = bookingRoom.getBooking();
+        booking.getBookingRooms().add(bookingRoom);
+        bookingRoom.setBooking(booking);
+    }
+
+    public Booking findBookingByReference(String bookingReference) {
+        return bookingRepository.findByBookingReference(bookingReference).orElseThrow(() -> new BookingNotFoundException("Booking not found with reference: " + bookingReference));
+    }
 
 }

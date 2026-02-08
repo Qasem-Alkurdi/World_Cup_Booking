@@ -1,6 +1,11 @@
 package com.worldcup.hotelbooking.booking.booking;
 
+import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
+import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomMapper;
+import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRequestDto;
+import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomResponseDto;
 import com.worldcup.hotelbooking.catalog.hotel.HotelService;
+import com.worldcup.hotelbooking.catalog.roomtype.RoomTypeService;
 import com.worldcup.hotelbooking.user.user.UserController;
 import com.worldcup.hotelbooking.user.user.UserService;
 import jakarta.validation.Valid;
@@ -14,11 +19,13 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/bookings")
 public class BookingController {
-        private final BookingService bookingService;
+        private final BookingServiceImp bookingService;
         private final UserService userService;
         private final HotelService hotelService;
+        private final RoomTypeService roomTypeService;
 
-        BookingController(BookingService bookingService, UserService userService, HotelService hotelService) {
+        BookingController(BookingServiceImp bookingService, UserService userService, HotelService hotelService, RoomTypeService roomTypeService) {
+            this.roomTypeService=roomTypeService;
             this.hotelService = hotelService;
             this.userService = userService;
             this.bookingService = bookingService;
@@ -55,12 +62,18 @@ public class BookingController {
     public ResponseEntity<BookingResponseDto> createBooking(@Valid @RequestBody BookingRequestDto bookingRequest, UriComponentsBuilder uriBuilder) {
         Booking booking = BookingMapper.toEntity(bookingRequest, userService.getUserById(bookingRequest.getUserId()), hotelService.getHotelById(bookingRequest.getHotelId()));
         Booking createdBooking = bookingService.createBooking(booking);
+        for(BookingRoomRequestDto roomRequest : bookingRequest.getRooms()) {
+            bookingService.addBookingRoom(BookingRoomMapper.toEntity(roomRequest, createdBooking,roomTypeService.getRoomTypeById(roomRequest.getRoomTypeId())));
+        }
         BookingResponseDto responseDto = BookingMapper.toDto(createdBooking);
+        for(BookingRoom bookingRoom : createdBooking.getBookingRooms()) {
+            responseDto.getRooms().add(BookingRoomMapper.toDto(bookingRoom));
+        }
         return ResponseEntity.created(uriBuilder.path("/bookings/{id}").buildAndExpand(createdBooking.getId()).toUri()).body(responseDto);
     }
 
     @PutMapping("/{id}/confirm")
-    public ResponseEntity<BookingResponseDto> updateBookingStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<BookingResponseDto> updateBookingStatus(@PathVariable Long id) {
         Booking updatedBooking = bookingService.confirmBooking(id);
         return ResponseEntity.ok(BookingMapper.toDto(updatedBooking));
     }
@@ -70,4 +83,16 @@ public class BookingController {
         Booking updatedBooking = bookingService.cancelBooking(id, reason);
         return ResponseEntity.ok(BookingMapper.toDto(updatedBooking));
     }
+
+    @GetMapping("/{id}/rooms")
+    public List<BookingRoomResponseDto> getBookingRooms(@PathVariable Long id) {
+        return bookingService.getBookingById(id).getBookingRooms().stream().map(BookingRoomMapper::toDto).collect(Collectors.toList());
+    }
+
+    @GetMapping("/reference/{reference}")
+    public BookingResponseDto getBookingByReference(@PathVariable String reference) {
+        return BookingMapper.toDto(bookingService.findBookingByReference(reference));
+    }
+
+
 }

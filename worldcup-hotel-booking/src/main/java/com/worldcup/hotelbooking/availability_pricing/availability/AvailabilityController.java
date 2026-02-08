@@ -23,4 +23,8 @@ public class AvailabilityController {
         public int getAvailableRooms(@PathVariable long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
             return availabilityService.getAvailableRooms(roomTypeId,checkIn, checkOut);
         }
+//        GetMapping("/availability/hotel/{id}/?checkIn=2026-06-10&checkOut=2026-06-12")
+//        public boolean checkHotelAvailability(@PathVariable long hotelId, LocalDate checkIn, LocalDate checkOut) {
+//            return availabilityService.checkHotelAvailability(hotelId,checkIn, checkOut);
+//        }
 }
