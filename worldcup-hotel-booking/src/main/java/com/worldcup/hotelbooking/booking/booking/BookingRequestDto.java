@@ -4,6 +4,7 @@ import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRequestDto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import lombok.Getter;
 
@@ -14,9 +15,12 @@ import java.util.List;
     @Getter
     public class BookingRequestDto {
 
-        @NotBlank(message = "Hotel ID cannot be null")
+        @NotNull(message = "Hotel ID cannot be null")
+        @Positive(message = "Hotel ID must be positive")
         private Long hotelId;
-        @NotBlank(message = "User ID cannot be null")
+
+        @NotNull(message = "User ID cannot be null")
+        @Positive(message = "User ID must be positive")
         private long userId;
 
         private Long matchId;

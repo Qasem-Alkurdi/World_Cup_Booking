@@ -12,23 +12,23 @@ import java.util.List;
 
 @Entity
 @Data
-public class User {
+public class AppUser {
 
     @Id @GeneratedValue
     private Long id;
     private String name;
 
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "appUser")
     @JsonManagedReference
     private List<Booking> bookings;
 
     public void addBooking(Booking booking) {
         this.bookings.add(booking);
-        booking.setUser(this);
+        booking.setAppUser(this);
     }
 
     public void removeBooking(Booking booking) {
         this.bookings.remove(booking);
-        booking.setUser(null);
+        booking.setAppUser(null);
     }
 }

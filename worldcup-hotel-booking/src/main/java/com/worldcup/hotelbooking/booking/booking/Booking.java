@@ -1,19 +1,16 @@
 package com.worldcup.hotelbooking.booking.booking;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
 import com.worldcup.hotelbooking.catalog.hotel.Hotel;
-import com.worldcup.hotelbooking.user.user.User;
+import com.worldcup.hotelbooking.user.user.AppUser;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,7 +53,7 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private AppUser appUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hotel_id", nullable = false)

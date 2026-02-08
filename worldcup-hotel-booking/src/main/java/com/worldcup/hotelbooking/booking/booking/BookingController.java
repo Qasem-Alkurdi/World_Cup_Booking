@@ -6,8 +6,7 @@ import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRequestDto;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomResponseDto;
 import com.worldcup.hotelbooking.catalog.hotel.HotelService;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomTypeService;
-import com.worldcup.hotelbooking.user.user.UserController;
-import com.worldcup.hotelbooking.user.user.UserService;
+import com.worldcup.hotelbooking.user.user.AppUserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,14 +19,14 @@ import java.util.stream.Collectors;
 @RequestMapping("/bookings")
 public class BookingController {
         private final BookingServiceImp bookingService;
-        private final UserService userService;
+        private final AppUserService appUserService;
         private final HotelService hotelService;
         private final RoomTypeService roomTypeService;
 
-        BookingController(BookingServiceImp bookingService, UserService userService, HotelService hotelService, RoomTypeService roomTypeService) {
+        BookingController(BookingServiceImp bookingService, AppUserService appUserService, HotelService hotelService, RoomTypeService roomTypeService) {
             this.roomTypeService=roomTypeService;
             this.hotelService = hotelService;
-            this.userService = userService;
+            this.appUserService = appUserService;
             this.bookingService = bookingService;
         }
 
@@ -39,7 +38,7 @@ public class BookingController {
     }
 
     @GetMapping("/user/{userId}/status/{status}")
-    public List<BookingResponseDto> getUserBookingsByStatus(@PathVariable Long userId, @PathVariable String status) {
+    public List<BookingResponseDto> getUserBookingsByStatus(@PathVariable Long userId, @PathVariable Booking.BookingStatus status) {
         return bookingService.getUserBookings(userId, status).stream().map(BookingMapper::toDto).collect(Collectors.toList());
     }
 
@@ -49,7 +48,7 @@ public class BookingController {
     }
 
     @GetMapping("/hotel/{hotelId}/status/{status}")
-    public List<BookingResponseDto> getHotelBookingsByStatus(@PathVariable Long hotelId, @PathVariable String status) {
+    public List<BookingResponseDto> getHotelBookingsByStatus(@PathVariable Long hotelId, @PathVariable Booking.BookingStatus status) {
         return bookingService.getHotelBookings(hotelId, status).stream().map(BookingMapper::toDto).collect(Collectors.toList());
     }
 
@@ -60,11 +59,12 @@ public class BookingController {
 
     @PostMapping
     public ResponseEntity<BookingResponseDto> createBooking(@Valid @RequestBody BookingRequestDto bookingRequest, UriComponentsBuilder uriBuilder) {
-        Booking booking = BookingMapper.toEntity(bookingRequest, userService.getUserById(bookingRequest.getUserId()), hotelService.getHotelById(bookingRequest.getHotelId()));
-        Booking createdBooking = bookingService.createBooking(booking);
+        Booking booking = BookingMapper.toEntity(bookingRequest, appUserService.getUserById(bookingRequest.getUserId()), hotelService.getHotelById(bookingRequest.getHotelId()));
         for(BookingRoomRequestDto roomRequest : bookingRequest.getRooms()) {
-            bookingService.addBookingRoom(BookingRoomMapper.toEntity(roomRequest, createdBooking,roomTypeService.getRoomTypeById(roomRequest.getRoomTypeId())));
+            bookingService.addBookingRoom(BookingRoomMapper.toEntity(roomRequest, booking,roomTypeService.getRoomTypeById(roomRequest.getRoomTypeId())));
         }
+        Booking createdBooking = bookingService.createBooking(booking);
+
         BookingResponseDto responseDto = BookingMapper.toDto(createdBooking);
         for(BookingRoom bookingRoom : createdBooking.getBookingRooms()) {
             responseDto.getRooms().add(BookingRoomMapper.toDto(bookingRoom));
