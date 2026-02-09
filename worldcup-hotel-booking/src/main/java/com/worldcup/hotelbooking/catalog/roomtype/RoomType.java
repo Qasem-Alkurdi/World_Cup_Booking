@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Entity
@@ -25,6 +26,7 @@ public class RoomType {
     private int MaxAdults;
     private int MaxChildren;
     private int numberOfRooms;
+    private BigDecimal pricePerNight;
 
 @OneToMany(mappedBy = "roomType")
 @JsonManagedReference

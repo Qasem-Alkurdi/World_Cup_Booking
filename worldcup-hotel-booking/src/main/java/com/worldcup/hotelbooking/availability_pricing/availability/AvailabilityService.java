@@ -27,4 +27,6 @@ public class AvailabilityService {
     public int getAvailableRooms(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         return roomTypeRepository.findById(roomTypeId).orElseThrow(()-> new RoomTypeNotFoundException("Can not find Room Type With id"+roomTypeId)).getNumberOfRooms()-bookingRoomRepository.countBookedRooms(roomTypeId, checkIn, checkOut);
     }
+
+
 }

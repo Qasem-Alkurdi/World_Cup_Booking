@@ -19,10 +19,11 @@ public class BookingRoomMapper {
     }
 
     public static BookingRoomResponseDto toDto(BookingRoom entity) {
-        BookingRoomResponseDto dto = new BookingRoomResponseDto();
-        dto.setRoomTypeName(entity.getRoomType().getName());
-        dto.setNumberOfRooms(entity.getNumberOfRooms());
-        dto.setPricePerNight(entity.getPricePerNight());
+        BookingRoomResponseDto dto = new BookingRoomResponseDto(
+                entity.getRoomType().getName(),
+                entity.getNumberOfRooms(),
+                entity.getRoomType().getPricePerNight()
+        );
 
         return dto;
     }
