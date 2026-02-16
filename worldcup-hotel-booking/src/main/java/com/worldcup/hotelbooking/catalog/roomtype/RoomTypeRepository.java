@@ -40,4 +40,16 @@ public interface RoomTypeRepository extends JpaRepository<RoomType, Long> {
             @Param("hotelId") Long hotelId,
             @Param("name") String name
     );
+
+    @Query("""
+            select  COALESCE(sum(rt.totalRooms) , 0)
+            from RoomType rt
+            where rt.hotel.id = :hotelId
+              and rt.id <> :id
+              and rt.hotel.isDeleted = false
+            """)
+    int getTotalRoomsByHotelId(
+            @Param("hotelId") Long hotelId
+    );
+
 }
