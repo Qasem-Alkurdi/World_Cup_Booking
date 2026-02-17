@@ -20,4 +20,5 @@ AND br.booking.checkOutDate > :checkIn
             LocalDate checkOut
     );
 
+
 }

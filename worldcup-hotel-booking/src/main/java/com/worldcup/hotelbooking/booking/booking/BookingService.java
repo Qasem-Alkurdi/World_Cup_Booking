@@ -30,7 +30,7 @@ public interface BookingService {
     boolean checkAvailability(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
 
     // 8. Calculate total price (helper method)
-    BigDecimal calculateTotalPrice(Booking booking, LocalDate checkIn, LocalDate checkOut);
+    BigDecimal calculateTotalPrice(Booking booking);
 
     // 9. Get all bookings for a hotel (for hotel staff)
     List<Booking> getHotelBookings(Long hotelId, Booking.BookingStatus status);
