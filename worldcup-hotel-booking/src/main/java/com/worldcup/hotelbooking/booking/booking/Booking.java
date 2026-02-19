@@ -25,7 +25,7 @@ public class Booking {
     @Column(nullable = false, unique = true)
     private String bookingReference;
 
-    private Integer matchId;
+    private long matchId;
 
     @Column(nullable = false)
     private LocalDate checkInDate;

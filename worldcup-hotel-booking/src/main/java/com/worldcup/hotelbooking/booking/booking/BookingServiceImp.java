@@ -1,5 +1,6 @@
 package com.worldcup.hotelbooking.booking.booking;
 
+import com.worldcup.hotelbooking.availability_pricing.pricing.EnhancedPricingService;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRepository;
 import com.worldcup.hotelbooking.catalog.hotel.HotelRepository;
@@ -22,13 +23,21 @@ public class BookingServiceImp implements BookingService {
     private final HotelRepository hotelRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final BookingRoomRepository bookingRoomRepository;
+    private final EnhancedPricingService enhancedPricingService;
 
-    BookingServiceImp(BookingRepository bookingRepository, AppUserRepository appUserRepository, HotelRepository hotelRepository, RoomTypeRepository roomTypeRepository, BookingRoomRepository bookingRoomRepository) {
+    public BookingServiceImp(
+            BookingRepository bookingRepository,
+            AppUserRepository appUserRepository,
+            HotelRepository hotelRepository,
+            RoomTypeRepository roomTypeRepository,
+            BookingRoomRepository bookingRoomRepository,
+            EnhancedPricingService enhancedPricingService){
+        this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.hotelRepository = hotelRepository;
-        this.bookingRepository = bookingRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.bookingRoomRepository = bookingRoomRepository;
+        this.enhancedPricingService = enhancedPricingService;
     }
 
     //get
@@ -76,7 +85,7 @@ public class BookingServiceImp implements BookingService {
     @Transactional(isolation = Isolation.SERIALIZABLE)
 //to run all the code in this method as a single transaction and to prevent dirty reads, non-repeatable reads, and phantom reads, ensuring data integrity during the booking process.
     public Booking createBooking(Booking booking) {
-        booking.setTotalPrice(calculateTotalPrice(booking, booking.getCheckInDate(), booking.getCheckOutDate()));
+
         booking.setStatus(Booking.BookingStatus.PENDING);
         if (booking.getCheckOutDate().isBefore(booking.getCheckInDate())) {
             throw new IllegalArgumentException("Check-out date cannot be before check-in date");
@@ -93,18 +102,21 @@ public class BookingServiceImp implements BookingService {
             }
         }
 
+        booking.setTotalPrice(calculateTotalPrice(booking));
+
         booking.getHotel().getBookings().add(booking);
         booking.getAppUser().getBookings().add(booking);
         return bookingRepository.save(booking);
     }
 
-    public BigDecimal calculateTotalPrice(Booking booking, java.time.LocalDate checkIn, java.time.LocalDate checkOut) {
-        long nights = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
-        BigDecimal total = BigDecimal.ZERO;
+    public BigDecimal calculateTotalPrice(Booking booking) {
+        BigDecimal totalPrice = BigDecimal.ZERO;
         for (BookingRoom room : booking.getBookingRooms()) {
-            total = total.add(room.getPricePerNight().multiply(BigDecimal.valueOf(nights)).multiply(BigDecimal.valueOf(room.getNumberOfRooms())));
+            BigDecimal roomPrice = enhancedPricingService.calculateTotalStayPrice(booking,room.getRoomType().getHotel(), room.getRoomType(),room.getNumberOfRooms());
+            totalPrice = totalPrice.add(roomPrice);
+
         }
-        return total;
+        return totalPrice.setScale(2, BigDecimal.ROUND_HALF_UP);
     }
 
     public boolean checkAvailability(Long roomTypeId, java.time.LocalDate checkIn, java.time.LocalDate checkOut, int rooms) {
@@ -147,10 +159,10 @@ public class BookingServiceImp implements BookingService {
     @Override
     public Booking confirmBooking(Long id) {
         Booking booking = bookingRepository.findById(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
-        if (booking.getStatus().equals("CONFIRMED")) {
+        if (booking.getStatus()== Booking.BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Booking is already confirmed");
         }
-        if (booking.getStatus().equals("CANCELLED")) {
+        if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
             throw new IllegalStateException("Cancelled booking cannot be confirmed");
         }
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
