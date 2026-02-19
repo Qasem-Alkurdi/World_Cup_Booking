@@ -1,5 +1,6 @@
 package com.worldcup.hotelbooking.booking.booking;
 
+import com.worldcup.hotelbooking.availability_pricing.availability.AvailabilityService;
 import com.worldcup.hotelbooking.availability_pricing.pricing.EnhancedPricingService;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRepository;
@@ -31,6 +32,7 @@ public class BookingServiceImp implements BookingService {
     private final BookingRoomRepository bookingRoomRepository;
     private final EnhancedPricingService enhancedPricingService;
     private final CancellationPolicyService cancellationPolicyService;
+    private final AvailabilityService availabilityService;
 
     public BookingServiceImp(
             BookingRepository bookingRepository,
@@ -39,7 +41,8 @@ public class BookingServiceImp implements BookingService {
             RoomTypeRepository roomTypeRepository,
             BookingRoomRepository bookingRoomRepository,
             EnhancedPricingService enhancedPricingService,
-            CancellationPolicyService cancellationPolicyService){
+            CancellationPolicyService cancellationPolicyService,
+            AvailabilityService availabilityService){
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.hotelRepository = hotelRepository;
@@ -47,6 +50,7 @@ public class BookingServiceImp implements BookingService {
         this.bookingRoomRepository = bookingRoomRepository;
         this.enhancedPricingService = enhancedPricingService;
         this.cancellationPolicyService=cancellationPolicyService;
+        this.availabilityService=availabilityService;
     }
 
     //get
@@ -102,11 +106,11 @@ public class BookingServiceImp implements BookingService {
         if (booking.getBookingRooms() == null || booking.getBookingRooms().isEmpty()) {
             throw new IllegalArgumentException("At least one room must be booked");
         }
-        if (!isNumberOfGuestsValid(booking)) {
+        if (!availabilityService.isNumberOfGuestsValid(booking)) {
             throw new IllegalArgumentException("Number of guests exceeds room capacity");
         }
         for (BookingRoom room : booking.getBookingRooms()) {
-            if (!checkAvailability(room.getRoomType().getId(), booking.getCheckInDate(), booking.getCheckOutDate(), room.getNumberOfRooms())) {
+            if (!availabilityService.checkAvailability(room.getRoomType().getId(), booking.getCheckInDate(), booking.getCheckOutDate(), room.getNumberOfRooms())) {
                 throw new IllegalArgumentException("Not enough rooms available for room type: " + room.getRoomType().getName());
             }
         }
@@ -128,29 +132,9 @@ public class BookingServiceImp implements BookingService {
         return totalPrice.setScale(2, BigDecimal.ROUND_HALF_UP);
     }
 
-    public boolean checkAvailability(Long roomTypeId, java.time.LocalDate checkIn, java.time.LocalDate checkOut, int rooms) {
-        int bookedRooms = bookingRoomRepository.countBookedRooms(roomTypeId, checkIn, checkOut);
-        int availableRooms =
-                roomTypeRepository.findById(roomTypeId)
-                        .orElseThrow(() -> new IllegalArgumentException("Room type not found with id: " + roomTypeId))
-                        .getTotalRooms()
-                        - bookedRooms;
 
-        if (availableRooms < rooms) {
-            return false;
-        }
-        return true;
-    }
 
-    public boolean isNumberOfGuestsValid(Booking booking) {
-        int numberOfValidAdults = 0;
-        int numberOfValidChildren = 0;
-        for (BookingRoom room : booking.getBookingRooms()) {
-            numberOfValidAdults += room.getRoomType().getMaxAdults() * room.getNumberOfRooms();
-            numberOfValidChildren += room.getRoomType().getMaxChildren() * room.getNumberOfRooms();
-        }
-        return booking.getNumberOfAdults() <= numberOfValidAdults && booking.getNumberOfChildren() <= numberOfValidChildren;
-    }
+
 
     @Override
     @Transactional
