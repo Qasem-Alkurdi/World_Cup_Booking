@@ -8,59 +8,33 @@ This document explains the package/module layout for the Spring Boot project.
 
 ```text
 com.worldcup.hotelbooking
-│
-├── catalog
-│   ├── hotel
-│   │   ├── Hotel.java
-│   │   ├── HotelRepository.java
-│   │   ├── HotelService.java
-│   │   ├── HotelController.java
-│   │   └── dto
-│   │       ├── HotelRequestDto.java
-│   │       └── HotelResponseDto.java
-│   │
-│   ├── roomtype/
-     ├── RoomType.java
-     ├── RoomTypeRepository.java
-     ├── RoomTypeService.java
-     ├── RoomTypeController.java
-     └── dto/
-│   │
-│   ├── hotelphoto
-│   │   ├── HotelPhoto.java
-│   │   ├── HotelPhotoRepository.java
-│   │   └── HotelPhotoService.java
-│   │
-│   └── roomtypephoto
-
-│       ├── RoomTypePhoto.java
-│       ├── RoomTypePhotoRepository.java
-│       └── RoomTypePhotoService.java
-
+│com.worldcup.hotelbooking
 │
 ├── availability_pricing
-│   ├── stadium
-│   │   ├── Stadium.java
-│   │   ├── StadiumRepository.java
-│   │   ├── StadiumService.java
-│   │   ├── StadiumController.java
-│   │   └── dto
+│   ├── availability
+│   │   ├── AvailabilityController.java
+│   │   ├── AvailabilityService.java
+│   │   └── dto/
 │   │
 │   ├── match
 │   │   ├── Match.java
 │   │   ├── MatchRepository.java
 │   │   ├── MatchService.java
 │   │   ├── MatchController.java
-│   │   └── dto
+│   │   └── dto/
 │   │
-│   ├── availability
-│   │   ├── AvailabilityService.java
-│   │   ├── AvailabilityController.java
-│   │   └── dto
+│   ├── pricing
+│   │   ├── PricingService.java
+│   │   ├── EnhancedPricingService.java
+│   │   ├── PricingConfig.java
+│   │   └── dto/
 │   │
-│   └── pricing
-│       ├── PricingService.java
-│       └── dto
+│   └── stadium
+│       ├── Stadium.java
+│       ├── StadiumRepository.java
+│       ├── StadiumService.java
+│       ├── StadiumController.java
+│       └── dto/
 │
 ├── booking
 │   ├── booking
@@ -68,12 +42,70 @@ com.worldcup.hotelbooking
 │   │   ├── BookingRepository.java
 │   │   ├── BookingService.java
 │   │   ├── BookingController.java
-│   │   └── dto
+│   │   ├── BookingSpecifications.java
+│   │   ├── BookingMapper.java
+│   │   ├── exceptions/
+│   │   └── dto/
 │   │
-│   └── bookingroom
-│       ├── BookingRoom.java
-│       ├── BookingRoomRepository.java
-│       └── BookingRoomService.java
+│   ├── bookingroom
+│   │   ├── BookingRoom.java
+│   │   ├── BookingRoomRepository.java
+│   │   ├── BookingRoomService.java
+│   │   ├── BookingRoomController.java
+│   │   ├── BookingRoomMapper.java
+│   │   ├── exceptions/
+│   │   └── dto/
+│   │
+│   └── cancellation
+│       ├── CancellationPolicyService.java
+│       ├── CancellationMapper.java
+│       ├── CancellationResult.java
+│       └── dto/
+│
+├── catalog
+│   ├── hotel
+│   │   ├── Hotel.java
+│   │   ├── HotelRepository.java
+│   │   ├── HotelService.java
+│   │   ├── HotelController.java
+│   │   ├── HotelStatus.java
+│   │   ├── exceptions/
+│   │   ├── mapper/
+│   │   └── dto/
+│   │
+│   ├── query
+│   │   └── hotel
+│   │       ├── HotelCatalogController.java
+│   │       ├── HotelCatalogService.java
+│   │       ├── HotelCatalogServiceImpl.java
+│   │       ├── HotelCatalogSpecifications.java
+│   │       ├── HotelCatalogCriteria.java
+│   │       ├── mapper/
+│   │       └── dto/
+│   │
+│   ├── roomtype
+│   │   ├── RoomType.java
+│   │   ├── RoomTypeRepository.java
+│   │   ├── RoomTypeService.java
+│   │   ├── RoomTypeController.java
+│   │   ├── exceptions/
+│   │   ├── mapper/
+│   │   └── dto/
+│   │
+│   ├── hotelphoto
+│   │   ├── HotelPhoto.java
+│   │   ├── HotelPhotoRepository.java
+│   │   ├── HotelPhotoService.java
+│   │   └── dto/
+│   │
+│   ├── roomtypephoto
+│   │   ├── RoomTypePhoto.java
+│   │   ├── RoomTypePhotoRepository.java
+│   │   ├── RoomTypePhotoService.java
+│   │
+│   └── storage
+│       ├── PhotoUrlResolver.java
+│       └── LocalPhotoUrlResolver.java
 │
 ├── payment
 │   └── payment
@@ -81,37 +113,34 @@ com.worldcup.hotelbooking
 │       ├── PaymentRepository.java
 │       ├── PaymentService.java
 │       ├── PaymentController.java
-│       └── dto
+│       ├── PaymentMapper.java
+│       ├── exceptions/
+│       └── dto/
 │
 ├── notification
 │   └── notification
 │       ├── Notification.java
 │       ├── NotificationRepository.java
 │       ├── NotificationService.java
-│       └── dto
+│       └── dto/
 │
-├── appUser
-│   └── appUser
-│       ├── User.java
-│       ├── UserRepository.java
-│       ├── UserService.java
-│       ├── UserController.java
-│       └── dto
+├── user
+│   └── user
+│       ├── AppUser.java
+│       ├── AppUserRepository.java
+│       ├── AppUserService.java
+│       ├── AppUserController.java
+│       ├── AppUserMapper.java
+│       ├── Role.java
+│       ├── exceptions/
+│       └── dto/
 │
 ├── common
-│   ├── exception
-│   │   ├── ApiException.java
-│   │   └── GlobalExceptionHandler.java
-│   │
-│   ├── enums
-│   │   ├── BookingStatus.java
-│   │   └── PaymentStatus.java
-│   │
-│   ├── response
-│   │   └── ApiResponse.java
-│   │
-│   └── mapper
-│       └── EntityMapper.java
+│   ├── enums/
+│   ├── exception/
+│   ├── mapper/
+│   ├── response/
+│   └── OpenApiConfig.java
 │
 └── WorldCupHotelBookingApplication.java
 ```
@@ -120,7 +149,8 @@ com.worldcup.hotelbooking
 
 ## How to Read This Structure
 
-This layout is **feature-based at the module level** (catalog, booking, payment, …), and **feature-subpackages** inside each module (hotel, room, match, …).
+This layout is **feature-based at the module level** (catalog, booking, payment, …), and **feature-subpackages** inside
+each module (hotel, room, match, …).
 
 Each feature typically contains:
 
