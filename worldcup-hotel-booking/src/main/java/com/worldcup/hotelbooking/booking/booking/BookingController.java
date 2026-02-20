@@ -6,11 +6,9 @@ import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomRequestDto;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomResponseDto;
 import com.worldcup.hotelbooking.booking.cancellation.CancellationMapper;
 import com.worldcup.hotelbooking.booking.cancellation.CancellationPolicyResponse;
-import com.worldcup.hotelbooking.booking.cancellation.CancellationPolicyService;
 import com.worldcup.hotelbooking.booking.cancellation.CancellationResult;
 import com.worldcup.hotelbooking.catalog.hotel.HotelService;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomTypeService;
-import com.worldcup.hotelbooking.common.enums.BookingStatus;
 import com.worldcup.hotelbooking.common.response.PagedResponse;
 import com.worldcup.hotelbooking.user.user.AppUserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,14 +19,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -55,7 +51,6 @@ public class BookingController {
     public BookingResponseDto getBookingById(@PathVariable Long id) {
         return BookingMapper.toDto(bookingService.getBookingById(id));
     }
-
 
 
     @Operation(summary = "Get all user's bookings", description = "Retrieve all bookings for a specific user regardless of booking status.")
@@ -100,7 +95,7 @@ public class BookingController {
     /**
      * Preview cancellation policy
      * Shows user what refund they would get WITHOUT actually cancelling
-     *
+     * <p>
      * Example: GET /api/v1/bookings/123/cancellation-policy
      */
     @GetMapping("/{id}/cancellation-policy")
@@ -114,7 +109,7 @@ public class BookingController {
 
     /**
      * Updated cancel endpoint - now with policy enforcement
-     *
+     * <p>
      * Example: PUT /api/v1/bookings/123/cancel?reason=Travel+plans+changed
      */
     @PutMapping("/{id}/cancel")
@@ -133,10 +128,8 @@ public class BookingController {
         // Cancel the booking (will throw exception if not allowed)
         Booking cancelledBooking = bookingService.cancelBooking(id, reason);
 
-        return ResponseEntity.ok(BookingMapper.toCancellationDto(cancelledBooking,policyResult));
+        return ResponseEntity.ok(BookingMapper.toCancellationDto(cancelledBooking, policyResult));
     }
-
-
 
 
     @Operation(summary = "Get booking rooms", description = "Retrieve the list of rooms associated with a specific booking by its ID.")
@@ -153,7 +146,7 @@ public class BookingController {
 
 
     @PutMapping("/id")
-    public ResponseEntity<BookingResponseDto> updateBooking(@PathVariable long id,@RequestBody @Valid BookingRequestDto bookingRequest,UriComponentsBuilder uriBuilder){
+    public ResponseEntity<BookingResponseDto> updateBooking(@PathVariable long id, @RequestBody @Valid BookingRequestDto bookingRequest, UriComponentsBuilder uriBuilder) {
         Booking booking = BookingMapper.toEntity(bookingRequest, appUserService.getUserById(bookingRequest.getUserId()), hotelService.findById(bookingRequest.getHotelId()));
         for (BookingRoomRequestDto roomRequest : bookingRequest.getRooms()) {
             bookingService.addBookingRoom(
@@ -221,25 +214,24 @@ public class BookingController {
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
             Pageable pageable
-    ){
-        Page<Booking> page = bookingService.filterBookings( userId,
+    ) {
+        Page<Booking> page = bookingService.filterBookings(userId,
                 hotelId,
-                 status,
-                 fromDate,
-                 toDate,
-                 minPrice,
-                 maxPrice,
-                 pageable);
+                status,
+                fromDate,
+                toDate,
+                minPrice,
+                maxPrice,
+                pageable);
 
         List<BookingResponseDto> content = page.getContent()
                 .stream()
                 .map(BookingMapper::toDto)
                 .toList();
 
-        return PagedResponse.from(page,content);
+        return PagedResponse.from(page, content);
 
     }
-
 
 
 }

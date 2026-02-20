@@ -84,9 +84,9 @@ public class AppUserServiceImpl implements AppUserService {
     public AppUser updateUser(Long id, AppUserRequestDto dto) {
         AppUser existingUser = getUserById(id);
 
-        existingUser.setUsername(dto.getUsername());
-        existingUser.setEmail(dto.getEmail());
-        existingUser.setPassword(dto.getPassword());
+        existingUser.setUsername(dto.username());
+        existingUser.setEmail(dto.email());
+        existingUser.setPassword(dto.password());
         // Note: For security, you should hash the password here if it's plain text
         // existingUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 

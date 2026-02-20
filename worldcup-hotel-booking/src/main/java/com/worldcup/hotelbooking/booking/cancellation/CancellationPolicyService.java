@@ -1,18 +1,17 @@
 package com.worldcup.hotelbooking.booking.cancellation;
 
 import com.worldcup.hotelbooking.booking.booking.Booking;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 /**
  * Cancellation Policy Service
- *
+ * <p>
  * World Cup 2026 Hotel Booking Cancellation Rules:
  * - 30+ days before check-in: Full refund (100%)
  * - 14-29 days before: 75% refund

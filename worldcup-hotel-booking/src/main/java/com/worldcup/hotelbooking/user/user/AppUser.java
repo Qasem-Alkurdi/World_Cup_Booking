@@ -5,9 +5,9 @@ import com.worldcup.hotelbooking.booking.booking.Booking;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import lombok.ToString;
 
 import java.util.HashSet;
@@ -30,7 +30,7 @@ public class AppUser {
 
     @NotBlank
     @Email
-    @Column(unique=true)
+    @Column(unique = true)
     private String email;
 
     @NotBlank
@@ -49,7 +49,6 @@ public class AppUser {
 
 
     private boolean enabled = true;
-
 
 
     public void addBooking(Booking booking) {

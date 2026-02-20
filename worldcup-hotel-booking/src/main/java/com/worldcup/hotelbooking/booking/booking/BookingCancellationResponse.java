@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 @Getter
 @AllArgsConstructor
-public  class BookingCancellationResponse {
+public class BookingCancellationResponse {
     private BookingResponseDto booking;
     private BigDecimal refundAmount;
     private BigDecimal cancellationFee;

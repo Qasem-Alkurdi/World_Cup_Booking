@@ -40,7 +40,7 @@ public class BookingMapper {
         return dto;
     }
 
-    public static BookingCancellationResponse toCancellationDto(Booking cancelledBooking, CancellationResult policyResult){
+    public static BookingCancellationResponse toCancellationDto(Booking cancelledBooking, CancellationResult policyResult) {
         return new BookingCancellationResponse(
                 BookingMapper.toDto(cancelledBooking),
                 policyResult.getRefundAmount(),

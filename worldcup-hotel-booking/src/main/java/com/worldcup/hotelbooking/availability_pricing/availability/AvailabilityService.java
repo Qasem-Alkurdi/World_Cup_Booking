@@ -46,10 +46,7 @@ public class AvailabilityService {
                         .getTotalRooms()
                         - bookedRooms;
 
-        if (availableRooms < rooms) {
-            return false;
-        }
-        return true;
+        return availableRooms >= rooms;
     }
 
 

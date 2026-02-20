@@ -11,11 +11,11 @@ public class AppUserMapper {
     public static AppUser toEntity(AppUserRequestDto dto) {
 
         AppUser user = new AppUser();
-        user.setUsername(dto.getUsername());
-        user.setEmail(dto.getEmail());
+        user.setUsername(dto.username());
+        user.setEmail(dto.email());
 
         // Plain assignment for Step 1
-        user.setPassword(dto.getPassword());
+        user.setPassword(dto.password());
 
         user.setRoles(Set.of(Role.guest));
         user.setEnabled(true);

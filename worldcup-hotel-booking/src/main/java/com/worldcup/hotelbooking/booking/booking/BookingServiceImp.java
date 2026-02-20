@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,15 +48,15 @@ public class BookingServiceImp implements BookingService {
             BookingRoomRepository bookingRoomRepository,
             EnhancedPricingService enhancedPricingService,
             CancellationPolicyService cancellationPolicyService,
-            AvailabilityService availabilityService){
+            AvailabilityService availabilityService) {
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.hotelRepository = hotelRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.bookingRoomRepository = bookingRoomRepository;
         this.enhancedPricingService = enhancedPricingService;
-        this.cancellationPolicyService=cancellationPolicyService;
-        this.availabilityService=availabilityService;
+        this.cancellationPolicyService = cancellationPolicyService;
+        this.availabilityService = availabilityService;
     }
 
     //get
@@ -130,15 +131,12 @@ public class BookingServiceImp implements BookingService {
     public BigDecimal calculateTotalPrice(Booking booking) {
         BigDecimal totalPrice = BigDecimal.ZERO;
         for (BookingRoom room : booking.getBookingRooms()) {
-            BigDecimal roomPrice = enhancedPricingService.calculateTotalStayPrice(booking,room.getRoomType().getHotel(), room.getRoomType(),room.getNumberOfRooms());
+            BigDecimal roomPrice = enhancedPricingService.calculateTotalStayPrice(booking, room.getRoomType().getHotel(), room.getRoomType(), room.getNumberOfRooms());
             totalPrice = totalPrice.add(roomPrice);
 
         }
-        return totalPrice.setScale(2, BigDecimal.ROUND_HALF_UP);
+        return totalPrice.setScale(2, RoundingMode.HALF_UP);
     }
-
-
-
 
 
     @Override
@@ -194,7 +192,7 @@ public class BookingServiceImp implements BookingService {
     @Override
     public Booking confirmBooking(Long id) {
         Booking booking = bookingRepository.findById(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
-        if (booking.getStatus()== Booking.BookingStatus.CONFIRMED) {
+        if (booking.getStatus() == Booking.BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Booking is already confirmed");
         }
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
@@ -218,7 +216,7 @@ public class BookingServiceImp implements BookingService {
     public Booking updateExisting(long id, Booking booking) {
         Booking oldBooking = bookingRepository.findById(id)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
-        validateCanModify(oldBooking,booking);
+        validateCanModify(oldBooking, booking);
         oldBooking.setCheckInDate(booking.getCheckInDate());
         oldBooking.setCheckOutDate(booking.getCheckOutDate());
         oldBooking.setNumberOfGuests(booking.getNumberOfGuests());
@@ -226,9 +224,9 @@ public class BookingServiceImp implements BookingService {
         oldBooking.setNumberOfChildren(booking.getNumberOfChildren());
         oldBooking.setMatchId((booking.getMatchId()));
         oldBooking.setBookingRooms(booking.getBookingRooms());
-        BigDecimal oldPrice=oldBooking.getTotalPrice();
-        BigDecimal newPrice=calculateTotalPrice(booking);
-        if(oldPrice.compareTo(newPrice)>0)
+        BigDecimal oldPrice = oldBooking.getTotalPrice();
+        BigDecimal newPrice = calculateTotalPrice(booking);
+        if (oldPrice.compareTo(newPrice) > 0)
             newPrice.add(cancellationPolicyService.calculateCancellation(oldBooking).getCancellationFee());
 
         if (oldBooking.getCheckOutDate().isBefore(oldBooking.getCheckInDate())) {
@@ -246,19 +244,16 @@ public class BookingServiceImp implements BookingService {
             }
         }
         oldBooking.setTotalPrice(newPrice);
-         return bookingRepository.save(oldBooking);
+        return bookingRepository.save(oldBooking);
     }
-
-
-
 
 
     /**
      * Validate booking can be modified
      */
-    private void validateCanModify(Booking booking,Booking request) {
+    private void validateCanModify(Booking booking, Booking request) {
 
-        if(booking.getHotel().getId()!=request.getHotel().getId())
+        if (booking.getHotel().getId() != request.getHotel().getId())
             throw new ModificationNotAllowedException(
                     "Cannot modify the hotel"
             );
@@ -284,7 +279,7 @@ public class BookingServiceImp implements BookingService {
         }
     }
 
-    private List<String> analyzeChanges(Booking original,Booking request) {
+    private List<String> analyzeChanges(Booking original, Booking request) {
 
         List<String> changes = new ArrayList<>();
 
@@ -299,18 +294,17 @@ public class BookingServiceImp implements BookingService {
         }
 
 
-
         if (original.getBookingRooms().size() != request.getBookingRooms().size()) {
             changes.add(String.format("Rooms: %d → %d",
                     original.getBookingRooms().size(), request.getBookingRooms().size()));
         }
 
-        if (original.getNumberOfGuests()!=request.getNumberOfGuests()) {
+        if (original.getNumberOfGuests() != request.getNumberOfGuests()) {
             changes.add(String.format("Guests: %d → %d",
                     original.getNumberOfGuests(), request.getNumberOfGuests()));
         }
 
-        return  changes;
+        return changes;
     }
 
 
@@ -330,7 +324,6 @@ public class BookingServiceImp implements BookingService {
         Specification<Booking> spec = Specification.where((root, query, criteriaBuilder) -> criteriaBuilder.conjunction());
 
         Page<Booking> page = bookingRepository.findAll(spec, pageable);
-
 
 
         return page;
@@ -385,8 +378,6 @@ public class BookingServiceImp implements BookingService {
 
         return bookingRepository.findAll(spec, pageable);
     }
-
-
 
 
 }
