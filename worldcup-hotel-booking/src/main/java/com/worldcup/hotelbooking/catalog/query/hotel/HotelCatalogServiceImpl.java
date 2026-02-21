@@ -8,10 +8,7 @@ import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutBeforeChec
 import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutDateAreRequired;
 import com.worldcup.hotelbooking.catalog.query.hotel.mapper.HotelCatalogMapper;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +19,13 @@ import java.util.List;
 
 @Service
 public class HotelCatalogServiceImpl implements HotelCatalogService {
+
     private static final List<String> ALLOWED_SORT_FIELDS =
             List.of("id", "name", "city");
+
+
+    private static final int MAX_HOTELS_FOR_PRICE_FILTER = 500;
+
     private final HotelRepository hotelRepository;
     private final EnhancedPricingService enhancedPricingService;
 
@@ -36,6 +38,7 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
     @Override
     public Page<HotelCatalogResponseDto> search(Pageable pageable, HotelCatalogCriteria criteria) {
         validateSortFields(pageable);
+        validateDistanceCriteria(criteria);
 
         Specification<Hotel> distanceSpec = null;
 
@@ -74,12 +77,16 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
                 .and(HotelCatalogSpecifications.hasAccessibleFacilities(criteria.getHasAccessibleFacilities()))
                 .and(distanceSpec)
                 .and(HotelCatalogSpecifications.hasAvailability(criteria.getCheckInDate(), criteria.getCheckOutDate()))
-                .and(HotelCatalogSpecifications.petFriendly(criteria.getPetFriendly()).and(HotelCatalogSpecifications.hasElevator(criteria.getHasElevator())));
+                .and(HotelCatalogSpecifications.petFriendly(criteria.getPetFriendly())
+                        .and(HotelCatalogSpecifications.hasElevator(criteria.getHasElevator())));
 
         if (hasPriceFilter(criteria)) {
-            validatePriceFilterInputs(criteria);
+            validateDateRange(criteria.getCheckInDate(), criteria.getCheckOutDate());
 
-            List<Hotel> hotels = hotelRepository.findAll(spec, pageable.getSort());
+
+            Pageable limitedPageable = PageRequest.of(0, MAX_HOTELS_FOR_PRICE_FILTER, pageable.getSort());
+            List<Hotel> hotels = hotelRepository.findAll(spec, limitedPageable).getContent();
+
             List<Hotel> filtered = new ArrayList<>();
             for (Hotel hotel : hotels) {
                 if (hotelMatchesPriceRange(hotel, criteria)) {
@@ -104,13 +111,30 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         return new PageImpl<>(content, pageable, result.getTotalElements());
     }
 
+
+    private boolean hotelMatchesPriceRange(Hotel hotel, HotelCatalogCriteria criteria) {
+        LocalDate checkIn = criteria.getCheckInDate();
+        LocalDate checkOut = criteria.getCheckOutDate();
+        int numberOfRooms = criteria.getNumberOfRooms() == null ? 1 : criteria.getNumberOfRooms();
+        BigDecimal min = criteria.getMinTotalPrice();
+        BigDecimal max = criteria.getMaxTotalPrice();
+
+        for (RoomType roomType : hotel.getRoomsType()) {
+            BigDecimal total = enhancedPricingService.calculateTotalStayPrice(
+                    checkIn, checkOut, hotel, roomType, numberOfRooms);
+            if (priceWithinRange(total, min, max)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean hasPriceFilter(HotelCatalogCriteria criteria) {
         return criteria.getMinTotalPrice() != null || criteria.getMaxTotalPrice() != null;
     }
 
-    private void validatePriceFilterInputs(HotelCatalogCriteria criteria) {
-        LocalDate checkIn = criteria.getCheckInDate();
-        LocalDate checkOut = criteria.getCheckOutDate();
+
+    private void validateDateRange(LocalDate checkIn, LocalDate checkOut) {
         if (checkIn == null || checkOut == null) {
             throw new CheckOutDateAreRequired("checkInDate and checkOutDate are required for price filtering");
         }
@@ -119,56 +143,18 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         }
     }
 
-    private boolean hotelMatchesPriceRange(Hotel hotel, HotelCatalogCriteria criteria) {
-        LocalDate checkIn = criteria.getCheckInDate();
-        LocalDate checkOut = criteria.getCheckOutDate();
-        int numberOfRooms = criteria.getNumberOfRooms() == null ? 1 : criteria.getNumberOfRooms();
 
-        BigDecimal min = criteria.getMinTotalPrice();
-        BigDecimal max = criteria.getMaxTotalPrice();
+    private void validateDistanceCriteria(HotelCatalogCriteria criteria) {
+        boolean hasDistanceFilter = criteria.getMinDistanceKm() != null
+                || criteria.getMaxDistanceKm() != null;
 
-        if (min != null && max != null) {
-            for (RoomType roomType : hotel.getRoomsType()) {
-                BigDecimal total = enhancedPricingService.calculateTotalStayPrice(
-                        checkIn, checkOut, hotel, roomType, numberOfRooms);
-                if (priceWithinRange(total, min, max)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        PriceBounds bounds = calculateHotelPriceBounds(hotel, checkIn, checkOut, numberOfRooms);
-        if (bounds == null) {
-            return false;
-        }
-        if (max != null) {
-            return bounds.max.compareTo(max) <= 0;
-        }
-        if (min != null) {
-            return bounds.min.compareTo(min) >= 0;
-        }
-        return true;
-    }
-
-    private PriceBounds calculateHotelPriceBounds(
-            Hotel hotel,
-            LocalDate checkIn,
-            LocalDate checkOut,
-            int numberOfRooms) {
-        BigDecimal min = null;
-        BigDecimal max = null;
-        for (RoomType roomType : hotel.getRoomsType()) {
-            BigDecimal total = enhancedPricingService.calculateTotalStayPrice(
-                    checkIn, checkOut, hotel, roomType, numberOfRooms);
-            if (min == null || total.compareTo(min) < 0) {
-                min = total;
-            }
-            if (max == null || total.compareTo(max) > 0) {
-                max = total;
+        if (hasDistanceFilter) {
+            if (criteria.getLatitude() == null || criteria.getLongitude() == null) {
+                throw new IllegalArgumentException(
+                        "latitude and longitude are required when filtering by distance"
+                );
             }
         }
-        return min == null ? null : new PriceBounds(min, max);
     }
 
     private boolean priceWithinRange(BigDecimal total, BigDecimal min, BigDecimal max) {
@@ -188,7 +174,6 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
     }
 
     private void validateSortFields(Pageable pageable) {
-
         for (Sort.Order order : pageable.getSort()) {
             if (!ALLOWED_SORT_FIELDS.contains(order.getProperty())) {
                 throw new IllegalArgumentException(
@@ -198,9 +183,4 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
             }
         }
     }
-
-    private record PriceBounds(BigDecimal min, BigDecimal max) {
-    }
-
-
 }

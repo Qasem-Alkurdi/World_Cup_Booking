@@ -200,7 +200,7 @@ public class HotelCatalogSpecifications {
             if (checkIn == null || checkOut == null) {
                 return cb.conjunction();
             }
-            if (checkIn.isBefore(checkOut)) {
+            if (!checkIn.isBefore(checkOut)) {
                 throw new CheckOutBeforeCheckIn();
             }
             query.distinct(true);
