@@ -1,5 +1,7 @@
 package com.worldcup.hotelbooking.common.exception;
 
+import com.worldcup.hotelbooking.availability_pricing.match.MatchNotFoundException;
+import com.worldcup.hotelbooking.availability_pricing.stadium.StadiumNotFoundException;
 import com.worldcup.hotelbooking.booking.booking.BookingNotFoundException;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomNotFoundException;
 import com.worldcup.hotelbooking.catalog.hotel.exceptions.DeleteConflictException;
@@ -208,13 +210,12 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String message = "Duplicate entry detected.";
+        String exMessage = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
 
-        // Check if the violation is about the email column
-        if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("email")) {
+        if (exMessage.contains("email")) {
             message = "Email already registered. Please use a different email address.";
-        } else {
-            // For other integrity violations (if any), you might want a generic message
-            message = "Data integrity violation.";
+        } else if (exMessage.contains("username")) {
+            message = "Username already taken. Please choose a different username.";
         }
 
         ApiError body = new ApiError(
@@ -227,4 +228,45 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
     //user end
+
+
+    //stadium start
+    @ExceptionHandler(StadiumNotFoundException.class)
+    public ResponseEntity<ApiError> handleStadiumNotFound(StadiumNotFoundException ex, HttpServletRequest request) {
+        ApiError body = new ApiError(
+                Instant.now().toString(),
+                404,
+                "Not Found",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
+        ApiError body = new ApiError(
+                Instant.now().toString(),
+                409,
+                "Conflict",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+    //stadium end
+    //Match start
+
+    @ExceptionHandler(MatchNotFoundException.class)
+    public ResponseEntity<ApiError> handleMatchNotFound(MatchNotFoundException ex, HttpServletRequest request) {
+        ApiError body = new ApiError(
+                Instant.now().toString(),
+                404,
+                "Not Found",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    //match end
 }
