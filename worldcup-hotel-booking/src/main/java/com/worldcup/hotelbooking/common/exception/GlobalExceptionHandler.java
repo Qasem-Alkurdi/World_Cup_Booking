@@ -6,8 +6,8 @@ import com.worldcup.hotelbooking.catalog.hotel.exception.DeleteConflictException
 import com.worldcup.hotelbooking.catalog.hotel.exception.HotelNotFoundException;
 import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutBeforeCheckIn;
 import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutDateAreRequired;
-import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeAlreadyExistsException;
-import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeNotFoundException;
+import com.worldcup.hotelbooking.catalog.roomtype.exception.RoomTypeAlreadyExistsException;
+import com.worldcup.hotelbooking.catalog.roomtype.exception.RoomTypeNotFoundException;
 import com.worldcup.hotelbooking.payment.payment.PaymentNotFoundException;
 import com.worldcup.hotelbooking.user.user.AppUserNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
