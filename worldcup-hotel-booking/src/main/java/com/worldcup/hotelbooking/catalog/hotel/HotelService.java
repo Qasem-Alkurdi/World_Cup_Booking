@@ -2,8 +2,8 @@ package com.worldcup.hotelbooking.catalog.hotel;
 
 import com.worldcup.hotelbooking.booking.booking.BookingRepository;
 import com.worldcup.hotelbooking.catalog.hotel.dto.UpdateHotelPatchRequest;
-import com.worldcup.hotelbooking.catalog.hotel.exceptions.DeleteConflictException;
-import com.worldcup.hotelbooking.catalog.hotel.exceptions.HotelNotFoundException;
+import com.worldcup.hotelbooking.catalog.hotel.exception.DeleteConflictException;
+import com.worldcup.hotelbooking.catalog.hotel.exception.HotelNotFoundException;
 import com.worldcup.hotelbooking.user.user.AppUser;
 import com.worldcup.hotelbooking.user.user.AppUserNotFoundException;
 import com.worldcup.hotelbooking.user.user.AppUserRepository;

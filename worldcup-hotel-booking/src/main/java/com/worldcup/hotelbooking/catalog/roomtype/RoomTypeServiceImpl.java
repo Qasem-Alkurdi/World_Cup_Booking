@@ -2,7 +2,7 @@ package com.worldcup.hotelbooking.catalog.roomtype;
 
 import com.worldcup.hotelbooking.catalog.hotel.Hotel;
 import com.worldcup.hotelbooking.catalog.hotel.HotelRepository;
-import com.worldcup.hotelbooking.catalog.hotel.exceptions.HotelNotFoundException;
+import com.worldcup.hotelbooking.catalog.hotel.exception.HotelNotFoundException;
 import com.worldcup.hotelbooking.catalog.roomtype.dto.ReplaceRoomTypeRequestDto;
 import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeAlreadyExistsException;
 import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeNotFoundException;

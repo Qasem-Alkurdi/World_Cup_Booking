@@ -2,10 +2,10 @@ package com.worldcup.hotelbooking.common.exception;
 
 import com.worldcup.hotelbooking.booking.booking.BookingNotFoundException;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomNotFoundException;
-import com.worldcup.hotelbooking.catalog.hotel.exceptions.DeleteConflictException;
-import com.worldcup.hotelbooking.catalog.hotel.exceptions.HotelNotFoundException;
-import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutBeforeCheckIn;
-import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutDateAreRequired;
+import com.worldcup.hotelbooking.catalog.hotel.exception.DeleteConflictException;
+import com.worldcup.hotelbooking.catalog.hotel.exception.HotelNotFoundException;
+import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutBeforeCheckIn;
+import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutDateAreRequired;
 import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeAlreadyExistsException;
 import com.worldcup.hotelbooking.catalog.roomtype.exceptions.RoomTypeNotFoundException;
 import com.worldcup.hotelbooking.payment.payment.PaymentNotFoundException;

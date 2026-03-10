@@ -4,8 +4,8 @@ import com.worldcup.hotelbooking.availability_pricing.pricing.EnhancedPricingSer
 import com.worldcup.hotelbooking.catalog.hotel.Hotel;
 import com.worldcup.hotelbooking.catalog.hotel.HotelRepository;
 import com.worldcup.hotelbooking.catalog.query.hotel.dto.HotelCatalogResponseDto;
-import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutBeforeCheckIn;
-import com.worldcup.hotelbooking.catalog.query.hotel.exeption.CheckOutDateAreRequired;
+import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutBeforeCheckIn;
+import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutDateAreRequired;
 import com.worldcup.hotelbooking.catalog.query.hotel.mapper.HotelCatalogMapper;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomType;
 import org.springframework.data.domain.*;
