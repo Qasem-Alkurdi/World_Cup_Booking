@@ -17,7 +17,15 @@ public class PaymentResponseDto {
     private Payment.PaymentMethod paymentMethod;
     private Payment.PaymentStatus status;
 
+    private String paymentIntentReference;
     private String transactionReference;
 
+    private BigDecimal refundAmount;
+    private String refundReason;
+    private String failureReason;
+
+    private LocalDateTime createdAt;
     private LocalDateTime paidAt;
+    private LocalDateTime failedAt;
+    private LocalDateTime refundedAt;
 }

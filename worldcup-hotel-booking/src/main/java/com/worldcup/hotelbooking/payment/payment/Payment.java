@@ -1,4 +1,3 @@
-
 package com.worldcup.hotelbooking.payment.payment;
 
 import java.math.BigDecimal;
@@ -17,7 +16,8 @@ import org.hibernate.annotations.CreationTimestamp;
     indexes = {
         @Index(name = "idx_payment_booking", columnList = "booking_id"),
         @Index(name = "idx_payment_status", columnList = "status"),
-        @Index(name = "idx_payment_transaction", columnList = "transaction_reference")
+        @Index(name = "idx_payment_transaction", columnList = "transaction_reference"),
+        @Index(name = "idx_payment_intent", columnList = "payment_intent_reference")
     }
 )
 public class Payment {
@@ -27,7 +27,8 @@ public class Payment {
     @Column(name = "id")
     private Long id;
 
-
+    @Column(name = "payment_intent_reference", unique = true, length = 100)
+    private String paymentIntentReference;
 
     @Column(name = "transaction_reference", unique = true, length = 100)
     private String transactionReference;
@@ -54,26 +55,30 @@ public class Payment {
     @Column(name = "refund_reason")
     private String refundReason;
 
-    @Lob//to store big data
+    @Lob
     @Column(name = "failure_reason")
     private String failureReason;
 
-    @CreationTimestamp//it is creat the time when the record is created
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "failed_at")
+    private LocalDateTime failedAt;
+
     @Column(name = "refunded_at")
     private LocalDateTime refundedAt;
 
     public Payment() {}
 
-    public Payment(Booking booking, String transactionReference, BigDecimal amount,
+    public Payment(Booking booking, String paymentIntentReference, String transactionReference, BigDecimal amount,
                    PaymentMethod paymentMethod, PaymentStatus status, BigDecimal refundAmount, String refundReason,
-                   String failureReason, LocalDateTime paidAt, LocalDateTime refundedAt) {
+                   String failureReason, LocalDateTime paidAt, LocalDateTime failedAt, LocalDateTime refundedAt) {
         this.booking = booking;
+        this.paymentIntentReference = paymentIntentReference;
         this.transactionReference = transactionReference;
         this.amount = amount;
         this.paymentMethod = paymentMethod;
@@ -82,6 +87,7 @@ public class Payment {
         this.refundReason = refundReason;
         this.failureReason = failureReason;
         this.paidAt = paidAt;
+        this.failedAt = failedAt;
         this.refundedAt = refundedAt;
     }
 
@@ -89,19 +95,15 @@ public class Payment {
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
-
     public enum PaymentStatus {
-
-        PENDING,        // Payment created but not processed
-        COMPLETED,      // Payment successful
-        FAILED,         // Payment failed
-        CANCELLED,      // Payment cancelled by user/system
-        REFUNDED        // Money refunded
-
+        PENDING,
+        COMPLETED,
+        FAILED,
+        CANCELLED,
+        REFUNDED
     }
 
     public enum PaymentMethod {
-
         CREDIT_CARD,
         DEBIT_CARD,
         PAYPAL,

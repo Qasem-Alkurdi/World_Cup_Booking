@@ -9,6 +9,9 @@ import com.worldcup.hotelbooking.booking.cancellation.CancellationResult;
 import com.worldcup.hotelbooking.catalog.hotel.HotelRepository;
 import com.worldcup.hotelbooking.catalog.hotel.exceptions.HotelNotFoundException;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomTypeRepository;
+import com.worldcup.hotelbooking.payment.payment.Payment;
+import com.worldcup.hotelbooking.payment.payment.PaymentNotFoundException;
+import com.worldcup.hotelbooking.payment.payment.PaymentService;
 import com.worldcup.hotelbooking.user.user.AppUserNotFoundException;
 import com.worldcup.hotelbooking.user.user.AppUserRepository;
 import org.slf4j.Logger;
@@ -35,16 +38,19 @@ public class BookingServiceImp implements BookingService {
     private final EnhancedPricingService enhancedPricingService;
     private final CancellationPolicyService cancellationPolicyService;
     private final AvailabilityService availabilityService;
+    private final PaymentService paymentService;
 
     public BookingServiceImp(
             BookingRepository bookingRepository,
             EnhancedPricingService enhancedPricingService,
             CancellationPolicyService cancellationPolicyService,
-            AvailabilityService availabilityService) {
+            AvailabilityService availabilityService,
+            PaymentService paymentService) {
         this.bookingRepository = bookingRepository;
         this.enhancedPricingService = enhancedPricingService;
         this.cancellationPolicyService = cancellationPolicyService;
         this.availabilityService = availabilityService;
+        this.paymentService = paymentService;
     }
 
     //get
@@ -108,30 +114,24 @@ public class BookingServiceImp implements BookingService {
         Booking booking = bookingRepository.findByIdWithRooms(id)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
 
-        // CHECK CANCELLATION POLICY
         CancellationResult cancellationResult = cancellationPolicyService.previewCancellation(booking);
 
         if (!cancellationResult.isCanCancel()) {
             throw new IllegalStateException(cancellationResult.getPolicyMessage());
         }
 
-        // Log refund information
         logger.info("Cancellation approved: Refund ${} ({}%), Fee ${}",
                 cancellationResult.getRefundAmount(),
                 cancellationResult.getRefundPercentage(),
                 cancellationResult.getCancellationFee());
 
-        // Update booking status
         booking.setStatus(Booking.BookingStatus.CANCELLED);
         booking.setCancelReason(reason + " | " + cancellationResult.getPolicyMessage());
         booking.setCancelledAt(java.time.LocalDateTime.now());
         booking.setCancelledBy(booking.getAppUser().getUsername());
 
-        // You might want to add refund fields to Booking entity:
-        // booking.setRefundAmount(cancellationResult.getRefundAmount());
-        // booking.setCancellationFee(cancellationResult.getCancellationFee());
-
         Booking cancelled = bookingRepository.save(booking);
+        autoRefundCompletedPaymentIfEligible(cancelled, cancellationResult);
         logger.info("Booking {} cancelled successfully - Refund: ${}",
                 cancelled.getBookingReference(),
                 cancellationResult.getRefundAmount());
@@ -246,7 +246,7 @@ public class BookingServiceImp implements BookingService {
      */
     private void validateCanModify(Booking booking, Booking request) {
 
-        if (booking.getHotel().getId() != request.getHotel().getId())
+        if (!booking.getHotel().getId().equals(request.getHotel().getId()))
             throw new ModificationNotAllowedException(
                     "Cannot modify the hotel"
             );
@@ -390,5 +390,25 @@ public class BookingServiceImp implements BookingService {
 
         booking.setStatus(Booking.BookingStatus.CHECKED_OUT);
         return bookingRepository.save(booking);
+    }
+
+    private void autoRefundCompletedPaymentIfEligible(Booking booking, CancellationResult cancellationResult) {
+        if (cancellationResult.getRefundAmount() == null
+                || cancellationResult.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        try {
+            Payment payment = paymentService.getPaymentByBookingId(booking.getId());
+            if (payment.getStatus() == Payment.PaymentStatus.COMPLETED) {
+                paymentService.refundPaymentForBooking(
+                        booking.getId(),
+                        cancellationResult.getRefundAmount(),
+                        "Auto refund after booking cancellation"
+                );
+            }
+        } catch (PaymentNotFoundException ex) {
+            logger.info("No payment found for booking {}. Skipping refund.", booking.getId());
+        }
     }
 }

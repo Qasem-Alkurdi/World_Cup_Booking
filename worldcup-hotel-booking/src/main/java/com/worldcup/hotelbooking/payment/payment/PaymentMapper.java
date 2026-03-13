@@ -8,9 +8,10 @@ public class PaymentMapper {
         Payment payment = new Payment();
         payment.setBooking(booking);
         payment.setPaymentMethod(requestDto.getPaymentMethod());
+        return payment;
+    }
 
-        return payment;}
-     public static PaymentResponseDto toPaymentResponseDto(Payment payment) {
+    public static PaymentResponseDto toPaymentResponseDto(Payment payment) {
         PaymentResponseDto responseDto = new PaymentResponseDto();
         responseDto.setPaymentId(payment.getId());
         responseDto.setBookingReference(payment.getBooking().getBookingReference());
@@ -18,10 +19,15 @@ public class PaymentMapper {
         responseDto.setCurrency(payment.getCurrency());
         responseDto.setPaymentMethod(payment.getPaymentMethod());
         responseDto.setStatus(payment.getStatus());
+        responseDto.setPaymentIntentReference(payment.getPaymentIntentReference());
         responseDto.setTransactionReference(payment.getTransactionReference());
+        responseDto.setRefundAmount(payment.getRefundAmount());
+        responseDto.setRefundReason(payment.getRefundReason());
+        responseDto.setFailureReason(payment.getFailureReason());
+        responseDto.setCreatedAt(payment.getCreatedAt());
         responseDto.setPaidAt(payment.getPaidAt());
+        responseDto.setFailedAt(payment.getFailedAt());
+        responseDto.setRefundedAt(payment.getRefundedAt());
         return responseDto;
     }
-
-
 }

@@ -1,6 +1,5 @@
 package com.worldcup.hotelbooking.payment.payment;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -10,7 +9,6 @@ public class PaymentRequestDto {
     @NotNull
     private Long bookingId;
 
-    @NotBlank(message = "Amount cannot be blank")
+    @NotNull(message = "Payment method is required")
     private Payment.PaymentMethod paymentMethod;
 }
-
