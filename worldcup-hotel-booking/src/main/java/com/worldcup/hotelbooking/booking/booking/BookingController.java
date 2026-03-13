@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
@@ -52,44 +53,53 @@ public class BookingController {
         return BookingMapper.toDto(bookingService.getBookingById(id));
     }
 
-
-    @Operation(summary = "Get all user's bookings", description = "Retrieve all bookings for a specific user regardless of booking status.")
-    @GetMapping("/user/{userId}")
-    public List<BookingResponseDto> getUserBookings(@PathVariable Long userId) {
-        return bookingService.getUserBookings(userId).stream().map(BookingMapper::toDto).collect(toList());
-    }
-
-    @Operation(summary = "Get hotel bookings by status", description = "Retrieve all bookings for a specific hotel filtered by booking status.")
-    @GetMapping("/hotel/{hotelId}/status/{status}")
-    public List<BookingResponseDto> getHotelBookingsByStatus(@PathVariable Long hotelId, @PathVariable Booking.BookingStatus status) {
-        return bookingService.getHotelBookings(hotelId, status).stream().map(BookingMapper::toDto).collect(toList());
-    }
-
-    @Operation(summary = "Get all hotel bookings", description = "Retrieve all bookings for a specific hotel regardless of booking status.")
-    @GetMapping("/hotel/{hotelId}")
-    public List<BookingResponseDto> getHotelBookings(@PathVariable Long hotelId) {
-        return bookingService.getHotelBookings(hotelId).stream().map(BookingMapper::toDto).collect(toList());
-    }
-
     @Operation(summary = "Create a new booking", description = "Create a new booking with the provided details. The request must include user ID, hotel ID, check-in and check-out dates, and room details.")
     @PostMapping
-    public ResponseEntity<BookingResponseDto> createBooking(@Valid @RequestBody BookingRequestDto bookingRequest, UriComponentsBuilder uriBuilder) {
-        Booking booking = BookingMapper.toEntity(bookingRequest, appUserService.getUserById(bookingRequest.getUserId()), hotelService.findById(bookingRequest.getHotelId()));
+    public ResponseEntity<BookingResponseDto> createBooking(
+            @Valid @RequestBody BookingRequestDto bookingRequest,
+            UriComponentsBuilder uriBuilder) {
+
+        // Create the booking entity
+        Booking booking = BookingMapper.toEntity(
+                bookingRequest,
+                appUserService.getUserById(bookingRequest.getUserId()),
+                hotelService.findById(bookingRequest.getHotelId())
+        );
+
+        // Create MUTABLE list for booking rooms
+        List<BookingRoom> bookingRooms = new ArrayList<>();
+
+        // Convert room requests to entities
         for (BookingRoomRequestDto roomRequest : bookingRequest.getRooms()) {
-            bookingService.addBookingRoom(
-                    BookingRoomMapper.toEntity(
-                            roomRequest, booking, roomTypeService.findById(bookingRequest.getHotelId(), roomRequest.getRoomTypeId())
-                    )
+            BookingRoom bookingRoom = BookingRoomMapper.toEntity(
+                    roomRequest,
+                    booking,
+                    roomTypeService.findById(bookingRequest.getHotelId(), roomRequest.getRoomTypeId())
             );
+            bookingRooms.add(bookingRoom);
         }
 
+        // Set the mutable list on the booking
+        booking.setBookingRooms(bookingRooms);
+
+        // Create the booking (this will save everything in one transaction)
         Booking createdBooking = bookingService.createBooking(booking);
 
+        // Build response DTO
         BookingResponseDto responseDto = BookingMapper.toDto(createdBooking);
-        for (BookingRoom bookingRoom : createdBooking.getBookingRooms()) {
-            responseDto.getRooms().add(BookingRoomMapper.toDto(bookingRoom));
-        }
-        return ResponseEntity.created(uriBuilder.path("/bookings/{id}").buildAndExpand(createdBooking.getId()).toUri()).body(responseDto);
+
+//        List<BookingRoomResponseDto> bookingRoomsResponseDto = new ArrayList<>();
+//        // ✅ Populate the rooms list in the response
+//        for (BookingRoom bookingRoom : createdBooking.getBookingRooms()) {
+//            bookingRoomsResponseDto.add(BookingRoomMapper.toDto(bookingRoom));
+//        }
+//
+//        responseDto.setRooms(bookingRoomsResponseDto);
+        return ResponseEntity.created(
+                uriBuilder.path("/bookings/{id}")
+                        .buildAndExpand(createdBooking.getId())
+                        .toUri()
+        ).body(responseDto);
     }
 
     /**
@@ -145,25 +155,33 @@ public class BookingController {
     }
 
 
-    @PutMapping("/id")
-    public ResponseEntity<BookingResponseDto> updateBooking(@PathVariable long id, @RequestBody @Valid BookingRequestDto bookingRequest, UriComponentsBuilder uriBuilder) {
-        Booking booking = BookingMapper.toEntity(bookingRequest, appUserService.getUserById(bookingRequest.getUserId()), hotelService.findById(bookingRequest.getHotelId()));
+    @PutMapping("/{id}")
+    public ResponseEntity<BookingResponseDto> updateBooking(
+            @PathVariable long id,
+            @RequestBody @Valid BookingRequestDto bookingRequest) {
+
+        Booking booking = BookingMapper.toEntity(
+                bookingRequest,
+                appUserService.getUserById(bookingRequest.getUserId()),
+                hotelService.findById(bookingRequest.getHotelId())
+        );
+
+        // ✅ CORRECT - Add to the booking's list
         for (BookingRoomRequestDto roomRequest : bookingRequest.getRooms()) {
-            bookingService.addBookingRoom(
-                    BookingRoomMapper.toEntity(
-                            roomRequest, booking, roomTypeService.findById(bookingRequest.getHotelId(), roomRequest.getRoomTypeId())
-                    )
+            BookingRoom bookingRoom = BookingRoomMapper.toEntity(
+                    roomRequest,
+                    booking,
+                    roomTypeService.findById(bookingRequest.getHotelId(), roomRequest.getRoomTypeId())
             );
+
+            bookingRoom.setBooking(booking);
+            booking.getBookingRooms().add(bookingRoom);
         }
 
         Booking updated = bookingService.updateExisting(id, booking);
         BookingResponseDto responseDto = BookingMapper.toDto(updated);
-        for (BookingRoom bookingRoom : updated.getBookingRooms()) {
-            responseDto.getRooms().add(BookingRoomMapper.toDto(bookingRoom));
-        }
 
         return ResponseEntity.ok(responseDto);
-
     }
 
     @GetMapping("/my/history")
@@ -234,5 +252,21 @@ public class BookingController {
 
     }
 
+    @PutMapping("/{id}/confirm")
+    public ResponseEntity<BookingResponseDto> confirmBooking(@PathVariable Long id) {
+        Booking confirmed = bookingService.confirmBooking(id);
+        return ResponseEntity.ok(BookingMapper.toDto(confirmed));
+    }
 
+    @PutMapping("/{id}/checkin")
+    public ResponseEntity<BookingResponseDto> checkInBooking(@PathVariable Long id) {
+        Booking checkedIn = bookingService.checkInBooking(id);
+        return ResponseEntity.ok(BookingMapper.toDto(checkedIn));
+    }
+
+        @PutMapping("/{id}/checkout")
+    public ResponseEntity<BookingResponseDto> checkOutBooking(@PathVariable Long id) {
+        Booking checkedOut = bookingService.checkOutBooking(id);
+        return ResponseEntity.ok(BookingMapper.toDto(checkedOut));
+}
 }

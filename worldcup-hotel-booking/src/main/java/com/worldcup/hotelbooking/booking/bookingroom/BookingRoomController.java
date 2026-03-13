@@ -1,8 +1,13 @@
 package com.worldcup.hotelbooking.booking.bookingroom;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -13,9 +18,6 @@ public class BookingRoomController {
     BookingRoomController(BookingRoomServiceImp bookingRoomService) {
         this.bookingRoomService = bookingRoomService;
     }
-    @GetMapping("/booking-rooms")
-    public List<BookingRoomResponseDto> getAllBookingRooms() {
-        return  bookingRoomService.getAllBookingRooms().stream().map(BookingRoomMapper::toDto).toList();
-    }
+
 
 }

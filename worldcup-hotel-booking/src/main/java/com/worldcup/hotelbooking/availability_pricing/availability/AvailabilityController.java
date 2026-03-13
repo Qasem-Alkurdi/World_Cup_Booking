@@ -1,5 +1,6 @@
 package com.worldcup.hotelbooking.availability_pricing.availability;
 
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,14 +17,17 @@ public class AvailabilityController {
     }
 
     // Implement endpoints for checking room availability here
+    @Operation(summary = "Check availability of a specific room type for given check-in and check-out dates")
     @GetMapping("/availability/room-type/{id}")
-    public boolean checkRoomTypeAvailability(@PathVariable long roomTypeId, @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
-        return availabilityService.checkRoomTypeAvailability(roomTypeId, checkIn, checkOut);
+    public boolean checkRoomTypeAvailability(@PathVariable long id, @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
+        return availabilityService.checkRoomTypeAvailability(id, checkIn, checkOut);
     }
 
-    @GetMapping("/availability/room-type/{id}/room")
-    public int getAvailableRooms(@PathVariable long roomTypeId, @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
-        return availabilityService.getAvailableRooms(roomTypeId, checkIn, checkOut);
+
+    @Operation(summary = "Get the number of available rooms for a specific room type and given check-in and check-out dates")
+    @GetMapping("/availability/room-type/{id}/rooms")
+    public int getAvailableRooms(@PathVariable long id, @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
+        return availabilityService.getAvailableRooms(id, checkIn, checkOut);
     }
 //        GetMapping("/availability/hotel/{id}/?checkIn=2026-06-10&checkOut=2026-06-12")
 //        public boolean checkHotelAvailability(@PathVariable long hotelId, LocalDate checkIn, LocalDate checkOut) {

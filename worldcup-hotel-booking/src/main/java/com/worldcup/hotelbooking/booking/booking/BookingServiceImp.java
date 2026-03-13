@@ -32,28 +32,16 @@ import java.util.List;
 public class BookingServiceImp implements BookingService {
     private static final Logger logger = LoggerFactory.getLogger(BookingServiceImp.class);
     private final BookingRepository bookingRepository;
-    private final AppUserRepository appUserRepository;
-    private final HotelRepository hotelRepository;
-    private final RoomTypeRepository roomTypeRepository;
-    private final BookingRoomRepository bookingRoomRepository;
     private final EnhancedPricingService enhancedPricingService;
     private final CancellationPolicyService cancellationPolicyService;
     private final AvailabilityService availabilityService;
 
     public BookingServiceImp(
             BookingRepository bookingRepository,
-            AppUserRepository appUserRepository,
-            HotelRepository hotelRepository,
-            RoomTypeRepository roomTypeRepository,
-            BookingRoomRepository bookingRoomRepository,
             EnhancedPricingService enhancedPricingService,
             CancellationPolicyService cancellationPolicyService,
             AvailabilityService availabilityService) {
         this.bookingRepository = bookingRepository;
-        this.appUserRepository = appUserRepository;
-        this.hotelRepository = hotelRepository;
-        this.roomTypeRepository = roomTypeRepository;
-        this.bookingRoomRepository = bookingRoomRepository;
         this.enhancedPricingService = enhancedPricingService;
         this.cancellationPolicyService = cancellationPolicyService;
         this.availabilityService = availabilityService;
@@ -62,33 +50,7 @@ public class BookingServiceImp implements BookingService {
     //get
     @Transactional(readOnly = true)
     public Booking getBookingById(Long id) {
-        return bookingRepository.findById(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
-    }
-
-
-
-    @Transactional(readOnly = true)
-    public List<Booking> getUserBookings(Long userId) {
-        if (!appUserRepository.existsById(userId)) {
-            throw new AppUserNotFoundException("User not found with id: " + userId);
-        }
-        return bookingRepository.findByAppUser_Id(userId);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Booking> getHotelBookings(Long hotelId, Booking.BookingStatus status) {
-        if (!hotelRepository.existsById(hotelId)) {
-            throw new HotelNotFoundException(hotelId);
-        }
-        return bookingRepository.findByHotel_IdAndStatus(hotelId, status);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Booking> getHotelBookings(Long hotelId) {
-        if (!hotelRepository.existsById(hotelId)) {
-            throw new HotelNotFoundException(hotelId);
-        }
-        return bookingRepository.findByHotel_Id(hotelId);
+        return bookingRepository.findByIdWithRooms(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
     }
 
     /// //////////////////////////////////////////////////////////
@@ -109,6 +71,10 @@ public class BookingServiceImp implements BookingService {
         if (!availabilityService.isNumberOfGuestsValid(booking)) {
             throw new IllegalArgumentException("Number of guests exceeds room capacity");
         }
+
+        if(booking.getNumberOfGuests()!=booking.getNumberOfAdults()+booking.getNumberOfChildren()){
+            throw new IllegalArgumentException("Total number of guests must equal the sum of adults and children");
+        }
         for (BookingRoom room : booking.getBookingRooms()) {
             if (!availabilityService.checkAvailability(room.getRoomType().getId(), booking.getCheckInDate(), booking.getCheckOutDate(), room.getNumberOfRooms())) {
                 throw new IllegalArgumentException("Not enough rooms available for room type: " + room.getRoomType().getName());
@@ -117,8 +83,7 @@ public class BookingServiceImp implements BookingService {
 
         booking.setTotalPrice(calculateTotalPrice(booking));
 
-        booking.getHotel().getBookings().add(booking);
-        booking.getAppUser().getBookings().add(booking);
+
         return bookingRepository.save(booking);
     }
 
@@ -127,6 +92,7 @@ public class BookingServiceImp implements BookingService {
         for (BookingRoom room : booking.getBookingRooms()) {
             BigDecimal roomPrice = enhancedPricingService.calculateTotalStayPrice(booking, room.getRoomType().getHotel(), room.getRoomType(), room.getNumberOfRooms());
             totalPrice = totalPrice.add(roomPrice);
+            room.setBasePricePerNightPerRoom(room.getRoomType().getBasePrice());
             room.setTotalPriceWithFees(roomPrice);
 
         }
@@ -139,7 +105,7 @@ public class BookingServiceImp implements BookingService {
     public Booking cancelBooking(Long id, String reason) {
         logger.info("Cancelling booking with id: {} for reason: {}", id, reason);
 
-        Booking booking = bookingRepository.findById(id)
+        Booking booking = bookingRepository.findByIdWithRooms(id)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
 
         // CHECK CANCELLATION POLICY
@@ -186,7 +152,7 @@ public class BookingServiceImp implements BookingService {
 
     @Override
     public Booking confirmBooking(Long id) {
-        Booking booking = bookingRepository.findById(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
+        Booking booking = bookingRepository.findByIdWithRooms(id).orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
         if (booking.getStatus() == Booking.BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Booking is already confirmed");
         }
@@ -208,40 +174,72 @@ public class BookingServiceImp implements BookingService {
         return bookingRepository.findByBookingReference(bookingReference).orElseThrow(() -> new BookingNotFoundException("Booking not found with reference: " + bookingReference));
     }
 
-    public Booking updateExisting(long id, Booking booking) {
-        Booking oldBooking = bookingRepository.findById(id)
-                .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
-        validateCanModify(oldBooking, booking);
-        oldBooking.setCheckInDate(booking.getCheckInDate());
-        oldBooking.setCheckOutDate(booking.getCheckOutDate());
-        oldBooking.setNumberOfGuests(booking.getNumberOfGuests());
-        oldBooking.setNumberOfAdults(booking.getNumberOfAdults());
-        oldBooking.setNumberOfChildren(booking.getNumberOfChildren());
-        oldBooking.setMatchId((booking.getMatchId()));
-        oldBooking.setBookingRooms(booking.getBookingRooms());
-        BigDecimal oldPrice = oldBooking.getTotalPrice();
-        BigDecimal newPrice = calculateTotalPrice(booking);
-        if (oldPrice.compareTo(newPrice) > 0)
-            newPrice.add(cancellationPolicyService.calculateCancellation(oldBooking).getCancellationFee());
+    @Transactional
+    public Booking updateExisting(long id, Booking requestBooking) {
+        // 1. Fetch the MANAGED entity with its rooms
+        Booking managedBooking = bookingRepository.findByIdWithRooms(id)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found: " + id));
 
-        if (oldBooking.getCheckOutDate().isBefore(oldBooking.getCheckInDate())) {
-            throw new IllegalArgumentException("Check-out date cannot be before check-in date");
-        }
-        if (oldBooking.getBookingRooms() == null || oldBooking.getBookingRooms().isEmpty()) {
-            throw new IllegalArgumentException("At least one room must be booked");
-        }
-        if (!availabilityService.isNumberOfGuestsValid(oldBooking)) {
-            throw new IllegalArgumentException("Number of guests exceeds room capacity");
-        }
-        for (BookingRoom room : oldBooking.getBookingRooms()) {
-            if (!availabilityService.checkAvailability(room.getRoomType().getId(), oldBooking.getCheckInDate(), oldBooking.getCheckOutDate(), room.getNumberOfRooms())) {
-                throw new IllegalArgumentException("Not enough rooms available for room type: " + room.getRoomType().getName());
-            }
-        }
-        oldBooking.setTotalPrice(newPrice);
-        return bookingRepository.save(oldBooking);
+        // 2. Business Rule Validations
+        validateCanModify(managedBooking, requestBooking);
+
+        // 3. Update top-level fields
+        managedBooking.setCheckInDate(requestBooking.getCheckInDate());
+        managedBooking.setCheckOutDate(requestBooking.getCheckOutDate());
+        managedBooking.setNumberOfGuests(requestBooking.getNumberOfGuests());
+        managedBooking.setNumberOfAdults(requestBooking.getNumberOfAdults());
+        managedBooking.setNumberOfChildren(requestBooking.getNumberOfChildren());
+
+        // 4. SMART ROOM UPDATE: Synchronize the collections
+        // This avoids deleting and re-inserting the same rooms
+        BigDecimal newTotal =updateBookingRoomsAndPrice(managedBooking, requestBooking.getBookingRooms());
+        managedBooking.setTotalPrice(newTotal);
+        // 5. DATA INTEGRITY: Validate logic (dates, capacity, etc.)
+        performBookingValidations(managedBooking);
+
+        // 6. CALCULATE PRICES: This fills the "price_per_night" columns before saving
+
+
+        return bookingRepository.save(managedBooking);
     }
 
+    private BigDecimal updateBookingRoomsAndPrice(Booking managed, List<BookingRoom> requestedRooms) {
+        // Simple strategy: If the rooms are complex, clear is okay ONLY IF
+        // you calculate prices IMMEDIATELY after adding them.
+        managed.getBookingRooms().clear();
+        BigDecimal totalPrice = BigDecimal.ZERO;
+        for (BookingRoom room : requestedRooms) {
+                BigDecimal roomPrice = enhancedPricingService.calculateTotalStayPrice(managed, room.getRoomType().getHotel(), room.getRoomType(), room.getNumberOfRooms());
+                totalPrice = totalPrice.add(roomPrice);
+                room.setBasePricePerNightPerRoom(room.getRoomType().getBasePrice());
+                room.setTotalPriceWithFees(roomPrice);
+                room.setBooking(managed);
+                managed.getBookingRooms().add(room);
+            }
+            return totalPrice.setScale(2, RoundingMode.HALF_UP);
+        }
+
+
+    private void performBookingValidations(Booking booking) {
+        if (booking.getCheckOutDate().isBefore(booking.getCheckInDate())) {
+            throw new IllegalArgumentException("Check-out cannot be before check-in");
+        }
+        if (!availabilityService.isNumberOfGuestsValid(booking)) {
+            throw new IllegalArgumentException("Guests exceed capacity");
+        }
+        // Check availability for the new dates/rooms
+        for (BookingRoom room : booking.getBookingRooms()) {
+            boolean available = availabilityService.checkAvailability(
+                    room.getRoomType().getId(),
+                    booking.getCheckInDate(),
+                    booking.getCheckOutDate(),
+                    room.getNumberOfRooms()
+            );
+            if (!available) {
+                throw new IllegalArgumentException("Room type " + room.getRoomType().getName() + " is full for these dates.");
+            }
+        }
+    }
 
     /**
      * Validate booking can be modified
@@ -365,4 +363,32 @@ public class BookingServiceImp implements BookingService {
     }
 
 
+    public Booking checkInBooking(Long id) {
+        Booking booking = bookingRepository.findByIdWithRooms(id)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
+
+        if (booking.getStatus() != Booking.BookingStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed bookings can be checked in");
+        }
+
+        if (booking.getCheckInDate().isAfter(LocalDate.now())) {
+            throw new IllegalStateException("Cannot check in before check-in date");
+        }
+
+        booking.setStatus(Booking.BookingStatus.CHECKED_IN);
+        return bookingRepository.save(booking);
+    }
+
+    public Booking checkOutBooking(Long id) {
+        Booking booking = bookingRepository.findByIdWithRooms(id)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + id));
+
+        if (booking.getStatus() != Booking.BookingStatus.CHECKED_IN) {
+            throw new IllegalStateException("Only checked-in bookings can be checked out");
+        }
+
+
+        booking.setStatus(Booking.BookingStatus.CHECKED_OUT);
+        return bookingRepository.save(booking);
+    }
 }

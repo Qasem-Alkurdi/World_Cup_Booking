@@ -1,5 +1,6 @@
 package com.worldcup.hotelbooking.booking.bookingroom;
 
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,8 +11,5 @@ public class BookingRoomServiceImp implements BookingRoomService {
     BookingRoomServiceImp(BookingRoomRepository bookingRoomRepository) {
         this.bookingRoomRepository = bookingRoomRepository;
     }
-    @Override
-    public List<BookingRoom> getAllBookingRooms() {
-        return bookingRoomRepository.findAll();
-    }
+
 }

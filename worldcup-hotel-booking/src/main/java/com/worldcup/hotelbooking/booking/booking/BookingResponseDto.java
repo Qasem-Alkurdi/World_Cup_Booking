@@ -6,6 +6,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -29,5 +30,9 @@ public class BookingResponseDto {
 
     private BigDecimal totalPrice;
 
-    private List<BookingRoomResponseDto> rooms;
+    private List<BookingRoomResponseDto> rooms=new ArrayList<>();
+
+//    public void setRooms(List<BookingRoomResponseDto> bookingRoomsResponseDto) {
+//        this.rooms = bookingRoomsResponseDto;
+//    }
 }

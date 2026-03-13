@@ -22,7 +22,7 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+   // @Column(nullable = false, unique = true)
     private String bookingReference;
 
     private long matchId;
@@ -69,14 +69,16 @@ public class Booking {
 
     // ---------------- Lifecycle ----------------
 
-    @PrePersist
+    @PrePersist//this method will be called before the entity is persisted to the database. It sets the createdAt timestamp and generates a unique booking reference.
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         bookingReference = generateReference();
     }
 
     private String generateReference() {
-        return "WC2026-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return "WC2026-" +
+                System.currentTimeMillis() + "-" +  // Add timestamp!
+                UUID.randomUUID().toString().substring(0, 4).toUpperCase();
     }
 
 

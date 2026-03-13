@@ -51,6 +51,17 @@ public class AvailabilityService {
         return availableRooms >= rooms;
     }
 
+    public boolean checkAvailabilityExcluding(Long roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms, Long excludeBookingId) {
+        int bookedRooms = bookingRoomRepository.countBookedRoomsExcluding(roomTypeId, checkIn, checkOut, excludeBookingId);
+        int availableRooms =
+                roomTypeRepository.findById(roomTypeId)
+                        .orElseThrow(() -> new IllegalArgumentException("Room type not found with id: " + roomTypeId))
+                        .getTotalRooms()
+                        - bookedRooms;
+
+        return availableRooms >= rooms;
+    }
+
     public boolean checkAvailabilityOfHotel(Hotel hotel,LocalDate checkIn,LocalDate checkout){
         boolean b=false;
         for(RoomType roomType:hotel.getRoomsType()){
