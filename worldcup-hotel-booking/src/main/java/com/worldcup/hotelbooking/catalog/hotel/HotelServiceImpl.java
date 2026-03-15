@@ -72,6 +72,7 @@ public class HotelServiceImpl implements HotelService {
                 "owner",
                 "status",
                 "isDeleted",
+                "deleted",
                 "deletedAt",
                 "createdAt",
                 "updatedAt",
