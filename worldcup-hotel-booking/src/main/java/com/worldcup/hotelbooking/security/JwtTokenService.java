@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class JwtTokenService {
@@ -14,6 +15,8 @@ public class JwtTokenService {
     private final JwtEncoder jwtEncoder;
     private final String issuer;
     private final long accessTokenMinutes;
+    @Value("${security.jwt.refresh-token-days}")
+    private long refreshTokenDays;
 
     public JwtTokenService(
             JwtEncoder jwtEncoder,
@@ -44,5 +47,13 @@ public class JwtTokenService {
 
     public long getAccessTokenExpiresInSeconds() {
         return accessTokenMinutes * 60;
+    }
+
+    public String generateRefreshToken() {
+        return UUID.randomUUID().toString();
+    }
+
+    public long getRefreshTokenExpiryInSeconds() {
+        return refreshTokenDays * 24 * 60 * 60;
     }
 }

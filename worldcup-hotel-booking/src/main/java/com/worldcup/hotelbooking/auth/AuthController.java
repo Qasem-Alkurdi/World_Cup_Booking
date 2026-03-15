@@ -19,4 +19,16 @@ public class AuthController {
         LoginResponse response = authService.login(request.username(), request.password());
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        LoginResponse response = authService.refresh(request.refreshToken());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/revoke")
+    public ResponseEntity<Void> revoke(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.revokeRefreshToken(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
 }

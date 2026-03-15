@@ -39,3 +39,4 @@ security:
     secret: ${JWT_SECRET:defaultSecretKeyWithAtLeast32CharactersBase64Encoded}
     issuer: worldcup-hotel-booking
     access-token-minutes: 60
+    refresh-token-days: 7
