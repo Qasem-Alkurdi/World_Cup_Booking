@@ -45,7 +45,9 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        List<String> roles = user.getRoles().stream().map(Enum::name).toList();
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.name().toUpperCase())
+                .collect(Collectors.toList());
         String accessToken = tokenService.generateAccessToken(user.getUsername(), user.getId(), roles);
 
         // Generate and save refresh token
@@ -83,7 +85,9 @@ public class AuthService {
         refreshTokenRepository.save(newRefreshToken);
 
         // Generate new access token
-        List<String> roles = user.getRoles().stream().map(Enum::name).toList();
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.name().toUpperCase())
+                .collect(Collectors.toList());
         String newAccessToken = tokenService.generateAccessToken(user.getUsername(), user.getId(), roles);
 
         return new LoginResponse(newAccessToken, newRefreshTokenValue, tokenService.getAccessTokenExpiresInSeconds());
