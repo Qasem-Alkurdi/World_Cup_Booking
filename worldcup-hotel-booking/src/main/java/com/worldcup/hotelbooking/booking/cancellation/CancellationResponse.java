@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Getter
 @AllArgsConstructor
 @Builder//this anotation allows us to easily create instances of this class using a builder pattern, which is especially useful when there are multiple fields to set.
-public class CancellationResponseDto {
+public class CancellationResponse {
 
     private boolean canCancel;
     private BigDecimal refundAmount;

@@ -4,7 +4,7 @@ import com.worldcup.hotelbooking.availability_pricing.availability.AvailabilityS
 import com.worldcup.hotelbooking.availability_pricing.pricing.EnhancedPricingServiceImpl;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
 import com.worldcup.hotelbooking.booking.cancellation.CancellationPolicyServiceImpl;
-import com.worldcup.hotelbooking.booking.cancellation.CancellationResponseDto;
+import com.worldcup.hotelbooking.booking.cancellation.CancellationResponse;
 import com.worldcup.hotelbooking.catalog.hotel.Hotel;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomType;
 import com.worldcup.hotelbooking.payment.Payment;
@@ -199,7 +199,7 @@ class BookingServiceImplTest {
     void cancelBooking_shouldSucceedAndRefund_whenPolicyAllowsAndPaymentCompleted() {
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
 
-        CancellationResponseDto cancellation = CancellationResponseDto.builder()
+        CancellationResponse cancellation = CancellationResponse.builder()
                 .canCancel(true)
                 .refundAmount(BigDecimal.valueOf(240))
                 .refundPercentage(100)
@@ -235,7 +235,7 @@ class BookingServiceImplTest {
     void cancelBooking_shouldAlsoRefund_whenPaymentPartiallyRefunded() {
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
 
-        CancellationResponseDto cancellation = CancellationResponseDto.builder()
+        CancellationResponse cancellation = CancellationResponse.builder()
                 .canCancel(true)
                 .refundAmount(BigDecimal.valueOf(50))
                 .refundPercentage(100)
@@ -272,7 +272,7 @@ class BookingServiceImplTest {
 
     @Test
     void cancelBooking_shouldThrow_whenPolicyDoesNotAllowCancellation() {
-        CancellationResponseDto cancellation = CancellationResponseDto.builder()
+        CancellationResponse cancellation = CancellationResponse.builder()
                 .canCancel(false)
                 .refundAmount(BigDecimal.ZERO)
                 .cancellationFee(BigDecimal.valueOf(100))
@@ -291,7 +291,7 @@ class BookingServiceImplTest {
 
     @Test
     void previewCancellation_shouldReturnPolicyPreview() {
-        CancellationResponseDto cancellation = CancellationResponseDto.builder()
+        CancellationResponse cancellation = CancellationResponse.builder()
                 .canCancel(true)
                 .refundAmount(BigDecimal.valueOf(180))
                 .refundPercentage(75)
@@ -302,7 +302,7 @@ class BookingServiceImplTest {
         when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
         when(cancellationPolicyService.previewCancellation(booking)).thenReturn(cancellation);
 
-        CancellationResponseDto result = bookingService.previewCancellation(1L);
+        CancellationResponse result = bookingService.previewCancellation(1L);
 
         assertTrue(result.isCanCancel());
         assertEquals(BigDecimal.valueOf(180), result.getRefundAmount());
@@ -310,7 +310,7 @@ class BookingServiceImplTest {
 
     @Test
     void previewManagerCancellation_shouldReturnResponse() {
-        CancellationResponseDto response = CancellationResponseDto.builder()
+        CancellationResponse response = CancellationResponse.builder()
                 .canCancel(true)
                 .refundAmount(BigDecimal.valueOf(240))
                 .policyMessage("Manager policy")
@@ -319,7 +319,7 @@ class BookingServiceImplTest {
         when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
         when(cancellationPolicyService.calculateManagerCancellation(booking)).thenReturn(response);
 
-        CancellationResponseDto result = bookingService.previewManagerCancellation(1L);
+        CancellationResponse result = bookingService.previewManagerCancellation(1L);
 
         assertEquals("Manager policy", result.getPolicyMessage());
         verify(cancellationPolicyService).calculateManagerCancellation(booking);
@@ -329,7 +329,7 @@ class BookingServiceImplTest {
     void cancelBookingByManager_shouldCancelAndSetCancelledByManager() {
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
 
-        CancellationResponseDto cancellation = CancellationResponseDto.builder()
+        CancellationResponse cancellation = CancellationResponse.builder()
                 .canCancel(true)
                 .refundAmount(BigDecimal.valueOf(200))
                 .bonusAmount(BigDecimal.valueOf(20))

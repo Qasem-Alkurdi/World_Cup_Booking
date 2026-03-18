@@ -1,7 +1,7 @@
 package com.worldcup.hotelbooking.booking.cancellation;
 
 public class CancellationMapper {
-    public static CancellationPolicyResponseDto toDto(CancellationResponseDto result) {
+    public static CancellationPolicyResponseDto toDto(CancellationResponse result) {
         return new CancellationPolicyResponseDto(
                 result.isCanCancel(),
                 result.getRefundAmount(),
