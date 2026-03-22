@@ -161,6 +161,7 @@ public class Hotel {
     @Column(name = "review_count", nullable = false)
     private int reviewCount = 0;
 
+
     // --- getters/setters/constructors ---
     public void addBooking(Booking booking) {
         this.bookings.add(booking);
