@@ -1,7 +1,5 @@
 package com.worldcup.hotelbooking.common.seeder;
 
-import com.worldcup.hotelbooking.availability_pricing.match.Match;
-import com.worldcup.hotelbooking.availability_pricing.match.MatchRepository;
 import com.worldcup.hotelbooking.booking.booking.Booking;
 import com.worldcup.hotelbooking.booking.booking.BookingRepository;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoom;
@@ -24,22 +22,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * BookingSeeder - Creates realistic booking scenarios for World Cup 2026
- *
- * Scenarios included:
- * - CONFIRMED bookings with completed payments
- * - PENDING bookings awaiting payment
- * - CHECKED_IN guests currently staying
- * - CHECKED_OUT completed stays
- * - CANCELLED bookings with refunds
- * - Bookings with additional payment required (price changes)
- * - Bookings during major matches (higher prices)
- */
 @Component
 @Order(6)
 @Profile("seed")
@@ -51,13 +38,15 @@ public class BookingSeeder implements CommandLineRunner {
     private final HotelRepository hotelRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final AppUserRepository appUserRepository;
-    private final MatchRepository matchRepository;
 
-    private final Random random = new Random(12345); // Fixed seed for reproducibility
+    private final Random random = new Random(12345);
 
     @Override
     @Transactional
     public void run(String... args) {
+        System.out.println("BOOKING SEEDER STARTED");
+        log.info("BOOKING SEEDER STARTED");
+
         if (bookingRepository.count() > 0) {
             log.info("Bookings already exist. Skipping booking seeder.");
             return;
@@ -65,9 +54,8 @@ public class BookingSeeder implements CommandLineRunner {
 
         List<Hotel> hotels = hotelRepository.findAll();
         List<AppUser> guests = appUserRepository.findAll().stream()
-                .filter(user -> user.getRoles().contains(Role.GUEST))
+                .filter(user -> user.getRoles() != null && user.getRoles().contains(Role.GUEST))
                 .toList();
-        List<Match> matches = matchRepository.findAll();
 
         if (hotels.isEmpty() || guests.isEmpty()) {
             log.warn("No hotels or guests found. Skipping booking seeder.");
@@ -76,7 +64,7 @@ public class BookingSeeder implements CommandLineRunner {
 
         List<Booking> bookings = new ArrayList<>();
 
-        // Scenario 1: CONFIRMED booking during opening match (Mexico City) - June 11
+        // Scenario 1: Opening match - Mexico City
         bookings.add(createBooking(
                 guests.get(0),
                 findHotelByCity(hotels, "Ciudad de Mexico"),
@@ -88,7 +76,7 @@ public class BookingSeeder implements CommandLineRunner {
                 "Opening match weekend in Mexico City"
         ));
 
-        // Scenario 2: PENDING booking - awaiting payment
+        // Scenario 2: Pending booking
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
                 hotels.get(randomIndex(hotels.size())),
@@ -100,7 +88,7 @@ public class BookingSeeder implements CommandLineRunner {
                 "Pending payment"
         ));
 
-        // Scenario 3: CHECKED_IN - currently staying
+        // Scenario 3: Checked in
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
                 findHotelByCity(hotels, "Atlanta"),
@@ -112,10 +100,10 @@ public class BookingSeeder implements CommandLineRunner {
                 "Currently checked in"
         ));
 
-        // Scenario 4: CHECKED_OUT - completed stay
+        // Scenario 4: Checked out
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "Boston"),
+                findHotelByCity(hotels, "Foxborough"),
                 LocalDate.now().minusDays(7),
                 LocalDate.now().minusDays(3),
                 2, 2, 0,
@@ -124,10 +112,10 @@ public class BookingSeeder implements CommandLineRunner {
                 "Completed stay"
         ));
 
-        // Scenario 5: CANCELLED with refund
+        // Scenario 5: Cancelled
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "Dallas"),
+                findHotelByCity(hotels, "Arlington"),
                 LocalDate.of(2026, 7, 10),
                 LocalDate.of(2026, 7, 15),
                 2, 2, 0,
@@ -136,20 +124,20 @@ public class BookingSeeder implements CommandLineRunner {
                 "User cancelled - personal reasons"
         ));
 
-        // Scenario 6: CONFIRMED with additional payment required (price increased)
+        // Scenario 6: Confirmed with additional payment required
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "Los Angeles"),
+                findHotelByCity(hotels, "Inglewood"),
                 LocalDate.of(2026, 7, 8),
                 LocalDate.of(2026, 7, 12),
                 4, 2, 2,
                 Booking.BookingStatus.CONFIRMED,
-                true, // Additional payment required
+                true,
                 "Price increased after booking modification"
         ));
 
-        // Scenario 7-12: Group stage bookings across different cities
-        String[] cities = {"Houston", "Miami", "Seattle", "Toronto", "Vancouver", "Monterrey"};
+        // Scenario 7-12: Group stage bookings
+        String[] cities = {"Houston", "Seattle", "Toronto", "Vancouver", "Apodaca", "Atlanta"};
         for (int i = 0; i < cities.length; i++) {
             LocalDate checkIn = LocalDate.of(2026, 6, 14 + (i * 2));
             bookings.add(createBooking(
@@ -157,59 +145,82 @@ public class BookingSeeder implements CommandLineRunner {
                     findHotelByCity(hotels, cities[i]),
                     checkIn,
                     checkIn.plusDays(3),
-                    random.nextInt(3) + 2, // 2-4 guests
+                    random.nextInt(3) + 2,
                     2,
-                    random.nextInt(2), // 0-1 children
+                    random.nextInt(2),
                     Booking.BookingStatus.CONFIRMED,
                     false,
                     "Group stage match week in " + cities[i]
             ));
         }
 
-        // Scenario 13-16: Round of 32 bookings (late June/early July)
+        // Extra Miami-area booking using actual seeded city
+        bookings.add(createBooking(
+                guests.get(randomIndex(guests.size())),
+                findHotelByCity(hotels, "Miami Gardens"),
+                LocalDate.of(2026, 6, 26),
+                LocalDate.of(2026, 6, 29),
+                3, 2, 1,
+                Booking.BookingStatus.CONFIRMED,
+                false,
+                "Hard Rock Stadium stay"
+        ));
+
+        // Scenario 13-16: Round of 32
         for (int i = 0; i < 4; i++) {
-            LocalDate checkIn = LocalDate.of(2026, 6, 28 + i);
+            LocalDate checkIn = LocalDate.of(2026, 6, 28).plusDays(i);
             bookings.add(createBooking(
                     guests.get(randomIndex(guests.size())),
                     hotels.get(randomIndex(hotels.size())),
                     checkIn,
                     checkIn.plusDays(2),
-                    random.nextInt(3) + 1, // 1-3 guests
-                    random.nextInt(2) + 1, // 1-2 adults
-                    random.nextInt(2), // 0-1 children
+                    random.nextInt(3) + 1,
+                    random.nextInt(2) + 1,
+                    random.nextInt(2),
                     Booking.BookingStatus.CONFIRMED,
                     false,
                     "Round of 32 knockout stage"
             ));
         }
 
-        // Scenario 17-20: Quarter-finals bookings (premium matches, higher demand)
+        // Scenario 17-20: Quarter-finals
         LocalDate[] quarterFinalDates = {
                 LocalDate.of(2026, 7, 13),
                 LocalDate.of(2026, 7, 14)
         };
+
         for (LocalDate date : quarterFinalDates) {
-            // Two bookings per quarter-final date
-            for (int j = 0; j < 2; j++) {
-                bookings.add(createBooking(
-                        guests.get(randomIndex(guests.size())),
-                        findHotelByCity(hotels, j == 0 ? "Dallas" : "Los Angeles"),
-                        date.minusDays(1),
-                        date.plusDays(2),
-                        random.nextInt(3) + 2, // 2-4 guests
-                        2,
-                        random.nextInt(2),
-                        Booking.BookingStatus.CONFIRMED,
-                        false,
-                        "Quarter-final match weekend"
-                ));
-            }
+            bookings.add(createBooking(
+                    guests.get(randomIndex(guests.size())),
+                    findHotelByCity(hotels, "Arlington"),
+                    date.minusDays(1),
+                    date.plusDays(2),
+                    random.nextInt(3) + 2,
+                    2,
+                    random.nextInt(2),
+                    Booking.BookingStatus.CONFIRMED,
+                    false,
+                    "Quarter-final weekend in Arlington"
+            ));
+
+            bookings.add(createBooking(
+                    guests.get(randomIndex(guests.size())),
+                    findHotelByCity(hotels, "Inglewood"),
+                    date.minusDays(1),
+                    date.plusDays(2),
+                    random.nextInt(3) + 2,
+                    2,
+                    random.nextInt(2),
+                    Booking.BookingStatus.CONFIRMED,
+                    false,
+                    "Quarter-final weekend in Inglewood"
+            ));
         }
 
-        // Scenario 21-22: Semi-finals bookings (very premium)
+        // Scenario 21-22: Semi-finals
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "Dallas"), // AT&T Stadium
+                findHotelByCity(hotels, "Arlington"),
                 LocalDate.of(2026, 7, 15),
                 LocalDate.of(2026, 7, 18),
                 2, 2, 0,
@@ -220,7 +231,7 @@ public class BookingSeeder implements CommandLineRunner {
 
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "Los Angeles"), // SoFi Stadium
+                findHotelByCity(hotels, "Inglewood"),
                 LocalDate.of(2026, 7, 16),
                 LocalDate.of(2026, 7, 19),
                 4, 2, 2,
@@ -229,10 +240,10 @@ public class BookingSeeder implements CommandLineRunner {
                 "Semi-final 2 at SoFi Stadium"
         ));
 
-        // Scenario 23: Final booking (most premium)
+        // Scenario 23: Final
         bookings.add(createBooking(
                 guests.get(randomIndex(guests.size())),
-                findHotelByCity(hotels, "New York/New Jersey"), // MetLife Stadium
+                findHotelByCity(hotels, "Carlstadt"),
                 LocalDate.of(2026, 7, 18),
                 LocalDate.of(2026, 7, 21),
                 4, 2, 2,
@@ -241,7 +252,7 @@ public class BookingSeeder implements CommandLineRunner {
                 "World Cup Final at MetLife Stadium"
         ));
 
-        // Scenario 24-28: Family bookings (larger groups, multiple rooms)
+        // Scenario 24-28: Family bookings
         for (int i = 0; i < 5; i++) {
             LocalDate checkIn = LocalDate.of(2026, 6, 16 + (i * 3));
             bookings.add(createBooking(
@@ -249,9 +260,9 @@ public class BookingSeeder implements CommandLineRunner {
                     hotels.get(randomIndex(hotels.size())),
                     checkIn,
                     checkIn.plusDays(5),
-                    6, // Large family
-                    4, // 4 adults
-                    2, // 2 children
+                    6,
+                    4,
+                    2,
                     Booking.BookingStatus.CONFIRMED,
                     false,
                     "Family vacation during World Cup"
@@ -292,6 +303,10 @@ public class BookingSeeder implements CommandLineRunner {
             String notes
     ) {
         Booking booking = new Booking();
+
+        // important: prevents NullPointerException if list is not initialized in entity
+        booking.setBookingRooms(new ArrayList<>());
+
         booking.setAppUser(guest);
         booking.setHotel(hotel);
         booking.setCheckInDate(checkIn);
@@ -303,23 +318,19 @@ public class BookingSeeder implements CommandLineRunner {
         booking.setAdditionalPaymentRequired(requiresAdditionalPayment);
         booking.setActive(true);
 
-        // Set timestamps based on status
         LocalDateTime now = LocalDateTime.now();
-        if (status == Booking.BookingStatus.CONFIRMED ||
-                status == Booking.BookingStatus.CHECKED_IN ||
-                status == Booking.BookingStatus.CHECKED_OUT) {
+        if (status == Booking.BookingStatus.CONFIRMED
+                || status == Booking.BookingStatus.CHECKED_IN
+                || status == Booking.BookingStatus.CHECKED_OUT) {
             booking.setConfirmedAt(now.minusDays(random.nextInt(30)));
         }
 
-        // Add booking rooms
         List<RoomType> hotelRooms = roomTypeRepository.findByHotelId(hotel.getId());
         if (!hotelRooms.isEmpty()) {
             addBookingRooms(booking, hotelRooms, totalGuests);
         }
 
-        // Calculate total price (will be updated by pricing service in real app)
-        BigDecimal totalPrice = calculateEstimatedPrice(booking, hotel);
-        booking.setTotalPrice(totalPrice);
+        booking.setTotalPrice(calculateEstimatedPrice(booking));
 
         if (requiresAdditionalPayment) {
             booking.setAdditionalPaymentRequired(true);
@@ -329,17 +340,15 @@ public class BookingSeeder implements CommandLineRunner {
     }
 
     private void addBookingRooms(Booking booking, List<RoomType> availableRooms, int totalGuests) {
-        // Determine how many rooms needed
-        int roomsNeeded = (int) Math.ceil(totalGuests / 2.0); // Assume 2 guests per room average
+        int roomsNeeded = (int) Math.ceil(totalGuests / 2.0);
 
-        // Pick room type (prefer Standard for smaller groups, Suite for larger)
         RoomType selectedRoomType;
         if (totalGuests <= 2 && availableRooms.size() >= 1) {
-            selectedRoomType = availableRooms.get(0); // Standard
+            selectedRoomType = availableRooms.get(0);
         } else if (totalGuests >= 4 && availableRooms.size() >= 3) {
-            selectedRoomType = availableRooms.get(2); // Suite
+            selectedRoomType = availableRooms.get(2);
         } else {
-            selectedRoomType = availableRooms.get(Math.min(1, availableRooms.size() - 1)); // Deluxe
+            selectedRoomType = availableRooms.get(Math.min(1, availableRooms.size() - 1));
         }
 
         BookingRoom bookingRoom = new BookingRoom();
@@ -348,20 +357,21 @@ public class BookingSeeder implements CommandLineRunner {
         bookingRoom.setNumberOfRooms(roomsNeeded);
         bookingRoom.setBasePricePerNightPerRoom(selectedRoomType.getBasePrice());
 
-        // Estimated price (pricing service will calculate exact)
-        int nights = (int) java.time.temporal.ChronoUnit.DAYS.between(
-                booking.getCheckInDate(), booking.getCheckOutDate());
+        int nights = (int) ChronoUnit.DAYS.between(
+                booking.getCheckInDate(),
+                booking.getCheckOutDate()
+        );
+
         BigDecimal roomTotal = selectedRoomType.getBasePrice()
                 .multiply(BigDecimal.valueOf(nights))
                 .multiply(BigDecimal.valueOf(roomsNeeded))
-                .multiply(BigDecimal.valueOf(1.15)); // 15% markup estimate
+                .multiply(BigDecimal.valueOf(1.15));
 
         bookingRoom.setTotalPriceWithFees(roomTotal);
-
         booking.getBookingRooms().add(bookingRoom);
     }
 
-    private BigDecimal calculateEstimatedPrice(Booking booking, Hotel hotel) {
+    private BigDecimal calculateEstimatedPrice(Booking booking) {
         BigDecimal total = BigDecimal.ZERO;
         for (BookingRoom room : booking.getBookingRooms()) {
             total = total.add(room.getTotalPriceWithFees());
@@ -371,10 +381,9 @@ public class BookingSeeder implements CommandLineRunner {
 
     private Hotel findHotelByCity(List<Hotel> hotels, String cityName) {
         return hotels.stream()
-                .filter(h -> h.getCity().equalsIgnoreCase(cityName) ||
-                        h.getCity().contains(cityName))
+                .filter(h -> h.getCity() != null && h.getCity().equalsIgnoreCase(cityName))
                 .findFirst()
-                .orElse(hotels.get(0)); // Fallback to first hotel
+                .orElseThrow(() -> new IllegalStateException("No hotel found for city: " + cityName));
     }
 
     private int randomIndex(int size) {
