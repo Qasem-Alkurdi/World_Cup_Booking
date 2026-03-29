@@ -1,10 +1,10 @@
 package com.worldcup.hotelbooking.catalog.hotel;
 
-import com.worldcup.hotelbooking.security.RateLimitService;
 import com.worldcup.hotelbooking.catalog.hotel.dto.UpdateHotelPatchRequest;
 import com.worldcup.hotelbooking.catalog.hotel.exception.HotelNotFoundException;
 import com.worldcup.hotelbooking.catalog.storage.StaticResourceConfig;
 import com.worldcup.hotelbooking.security.JwtTokenService;
+import com.worldcup.hotelbooking.security.RateLimitService;
 import com.worldcup.hotelbooking.user.AppUser;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,11 +22,15 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,11 +47,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 type = FilterType.ASSIGNABLE_TYPE,
                 classes = StaticResourceConfig.class
         ),
-          excludeAutoConfiguration = {
-              OAuth2ClientAutoConfiguration .class,
-              OAuth2ClientWebSecurityAutoConfiguration .class,
-              OAuth2ResourceServerAutoConfiguration .class
-          }
+        excludeAutoConfiguration = {
+                OAuth2ClientAutoConfiguration.class,
+                OAuth2ClientWebSecurityAutoConfiguration.class,
+                OAuth2ResourceServerAutoConfiguration.class
+        }
 )
 @AutoConfigureMockMvc(addFilters = false)
 class HotelCatalogControllerTest {
@@ -57,14 +61,13 @@ class HotelCatalogControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-
     @MockitoBean
     private RateLimitService rateLimitService;
 
     @MockitoBean
     private JwtTokenService jwtTokenService;
 
-    @MockitoBean                          // ← add this
+    @MockitoBean
     private CacheManager cacheManager;
 
     @MockitoBean
@@ -75,6 +78,7 @@ class HotelCatalogControllerTest {
         owner.setId(ownerId);
 
         Point location = GF.createPoint(new Coordinate(35.25, 32.22));
+        location.setSRID(4326);
 
         Hotel hotel = new Hotel();
         hotel.setId(id);
@@ -172,7 +176,6 @@ class HotelCatalogControllerTest {
 
         String requestBody = """
                 {
-                  "ownerId": 10,
                   "name": "Royal Hotel",
                   "description": "Nice hotel",
                   "contactEmail": "hotel@test.com",
@@ -201,6 +204,7 @@ class HotelCatalogControllerTest {
                 """;
 
         mockMvc.perform(post("/hotels")
+                        .principal(jwtAuthenticationToken(10L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isCreated())
@@ -325,5 +329,17 @@ class HotelCatalogControllerTest {
 
         mockMvc.perform(get("/hotels/{id}", 999L))
                 .andExpect(status().isNotFound());
+    }
+
+    private JwtAuthenticationToken jwtAuthenticationToken(Long userId) {
+        Jwt jwt = new Jwt(
+                "test-token",
+                Instant.now(),
+                Instant.now().plusSeconds(3600),
+                Map.of("alg", "none"),
+                Map.of("userId", userId)
+        );
+
+        return new JwtAuthenticationToken(jwt);
     }
 }

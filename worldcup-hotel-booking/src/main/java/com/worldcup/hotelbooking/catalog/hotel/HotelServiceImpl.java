@@ -86,6 +86,7 @@ public class HotelServiceImpl implements HotelService {
         hotel.setDeleted(false);
         hotel.setReviewCount(0);
         hotel.setAverageRating(BigDecimal.ZERO);
+
         return repository.save(hotel);
     }
 

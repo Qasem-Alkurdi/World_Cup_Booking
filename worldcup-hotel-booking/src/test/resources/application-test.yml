@@ -1,12 +1,15 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/worldcup_test
-    username: postgres
-    password: google123google
+  application:
+    name: worldcup-hotel-booking
+
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    show-sql: false
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+    open-in-view: false
   flyway:
     enabled: false
 

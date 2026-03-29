@@ -35,4 +35,4 @@ build/
 # Local Spring Boot config
 application-local.yml
 application-dev.yml
-
+application-test-local.yml
