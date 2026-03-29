@@ -15,6 +15,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -55,17 +57,48 @@ public class HotelController {
             @ApiResponse(responseCode = "403", description = "Access denied", content = @Content)
     })
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('MANAGER') and @hotelAuthorizationService.canCreateHotelForOwner(#body.ownerId, authentication))")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HotelResponseDto> create(
             @Valid @RequestBody CreateHotelRequestDto body,
+            Authentication authentication,
             UriComponentsBuilder uriBuilder
     ) {
-        Hotel entity = HotelMapper.fromCreate(body);
-        Hotel saved = service.create(entity, body.getOwnerId());
+        Long ownerId = extractUserId(authentication);
 
-        URI location = uriBuilder.path("/hotels/{id}").buildAndExpand(saved.getId()).toUri();
+        Hotel entity = HotelMapper.fromCreate(body);
+        Hotel saved = service.create(entity, ownerId);
+
+        URI location = uriBuilder.path("/hotels/{id}")
+                .buildAndExpand(saved.getId())
+                .toUri();
+
         return ResponseEntity.created(location).body(HotelMapper.toResponse(saved));
     }
+
+    private Long extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new IllegalStateException("Unauthenticated user cannot create hotel");
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof Jwt jwt) {
+            Object claim = jwt.getClaim("userId");
+
+            if (claim instanceof Integer i) return i.longValue();
+            if (claim instanceof Long l) return l;
+            if (claim instanceof String s) {
+                try {
+                    return Long.parseLong(s);
+                } catch (NumberFormatException ignored) {
+                    throw new IllegalStateException("Invalid userId claim");
+                }
+            }
+        }
+
+        throw new IllegalStateException("userId claim is missing or invalid");
+    }
+
 
     @Operation(
             summary = "Get hotel by id",

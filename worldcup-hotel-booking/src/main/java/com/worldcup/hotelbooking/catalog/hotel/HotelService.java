@@ -9,7 +9,7 @@ public interface HotelService {
 
     Hotel findById(Long id);
 
-    Hotel create(Hotel hotel, Long ownerId); // ownerId مؤقت
+    Hotel create(Hotel hotel, Long ownerId);
 
     Hotel replace(Long id, Hotel hotel);
 
