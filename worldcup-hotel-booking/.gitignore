@@ -38,4 +38,4 @@ application-dev.yml
 application-test-local.yml
 #photo
 /uploads
-/uploads/*
+/uploads/**/*
