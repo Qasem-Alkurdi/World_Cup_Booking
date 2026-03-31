@@ -3,8 +3,6 @@ package com.worldcup.hotelbooking.common.exception;
 import com.nimbusds.jose.jwk.source.RateLimitReachedException;
 import com.worldcup.hotelbooking.auth.InvalidCredentialsException;
 import com.worldcup.hotelbooking.auth.InvalidRefreshTokenException;
-import com.worldcup.hotelbooking.tournament.match.MatchNotFoundException;
-import com.worldcup.hotelbooking.tournament.stadium.StadiumNotFoundException;
 import com.worldcup.hotelbooking.booking.booking.BookingNotFoundException;
 import com.worldcup.hotelbooking.booking.booking.ModificationNotAllowedException;
 import com.worldcup.hotelbooking.booking.bookingroom.BookingRoomNotFoundException;
@@ -22,6 +20,8 @@ import com.worldcup.hotelbooking.catalog.storage.exception.InvalidPhotoFileExcep
 import com.worldcup.hotelbooking.catalog.storage.exception.StorageOperationException;
 import com.worldcup.hotelbooking.chat.ConversationNotFoundException;
 import com.worldcup.hotelbooking.payment.PaymentException;
+import com.worldcup.hotelbooking.tournament.match.MatchNotFoundException;
+import com.worldcup.hotelbooking.tournament.stadium.StadiumNotFoundException;
 import com.worldcup.hotelbooking.user.AppUserNotFoundException;
 import com.worldcup.hotelbooking.user.PasswordValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 
@@ -92,8 +93,8 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
-        String errorMessage = ex.getBindingResult().getAllErrors().stream()
-                .map(error -> error.getDefaultMessage())
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .reduce((msg1, msg2) -> msg1 + "; " + msg2)
                 .orElse("Validation failed");
 
@@ -104,6 +105,7 @@ public class GlobalExceptionHandler {
                 errorMessage,
                 request.getRequestURI()
         );
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
@@ -326,6 +328,22 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxSizeException(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        ApiError error = new ApiError(
+                Instant.now().toString(),
+                413,
+                "Payload Too Large",
+                "File size exceeds the maximum allowed size",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(413).body(error);
     }
 //photo end
 
