@@ -2,7 +2,12 @@ package com.worldcup.hotelbooking.user.user;
 
 import com.worldcup.hotelbooking.booking.booking.Booking;
 import com.worldcup.hotelbooking.booking.booking.BookingResponseDto;
+import com.worldcup.hotelbooking.chat.ChatMessageRepository;
+import com.worldcup.hotelbooking.chat.ConversationRepository;
 import com.worldcup.hotelbooking.notification.NotificationService;
+import com.worldcup.hotelbooking.payment.PaymentRepository;
+import com.worldcup.hotelbooking.review.ReviewRepository;
+import com.worldcup.hotelbooking.security.RefreshTokenRepository;
 import com.worldcup.hotelbooking.user.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,10 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +43,17 @@ class AppUserServiceImplTest {
     @Mock
     private PasswordValidator passwordValidator;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private PaymentRepository paymentRepository;
+    @Mock
+    private ReviewRepository reviewRepository;
+    @Mock
+    private ChatMessageRepository chatMessageRepository;
+    @Mock
+    private ConversationRepository conversationRepository;
+
     @Captor
     private ArgumentCaptor<AppUser> userCaptor;
 
@@ -56,6 +69,7 @@ class AppUserServiceImplTest {
         testUser.setPassword("encoded");
         testUser.setEnabled(true);
         testUser.setRoles(Set.of(Role.GUEST));
+        testUser.setBookings(new ArrayList<>()); // ensure non-null empty list
 
         dto = new AppUserRequestDto("newuser", "new@example.com", "rawPass");
     }
@@ -114,12 +128,34 @@ class AppUserServiceImplTest {
 
     @Test
     void deleteUser_existing() {
+        // 1. Add a mock booking with CANCELLED status (not active)
+        Booking mockBooking = new Booking();
+        mockBooking.setId(100L);
+        mockBooking.setStatus(Booking.BookingStatus.CANCELLED); // or CHECKED_OUT
+        testUser.setBookings(List.of(mockBooking));
+
+        // 2. Mock repository calls
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         doNothing().when(userRepository).delete(testUser);
 
+        // 3. Stub other repository methods
+        doNothing().when(paymentRepository).deleteByBookingIdIn(anyList());
+        doNothing().when(reviewRepository).deleteByBookingIdIn(anyList());
+        doNothing().when(chatMessageRepository).deleteBySenderId(anyLong());
+        doNothing().when(conversationRepository).deleteByGuestId(anyLong());
+        doNothing().when(refreshTokenRepository).deleteByUser(any());
+        when(conversationRepository.findAll()).thenReturn(new ArrayList<>());
+
+        // 4. Act
         userService.deleteUser(1L);
 
+        // 5. Assert
         verify(userRepository).delete(testUser);
+        verify(paymentRepository, times(1)).deleteByBookingIdIn(anyList());
+        verify(reviewRepository, times(1)).deleteByBookingIdIn(anyList());
+        verify(chatMessageRepository, times(1)).deleteBySenderId(1L);
+        verify(conversationRepository, times(1)).deleteByGuestId(1L);
+        verify(refreshTokenRepository, times(1)).deleteByUser(testUser);
     }
 
     @Test
@@ -174,12 +210,25 @@ class AppUserServiceImplTest {
 
     @Test
     void searchUsers_withBothParams() {
-        List<AppUser> expected = List.of(testUser);
-        when(userRepository.findByUsernameContainingIgnoreCaseAndEmailContainingIgnoreCase("user", "test"))
-                .thenReturn(expected);
+        // Prepare mock entity
+        AppUser testUser = new AppUser();
+        testUser.setId(1L);
+        testUser.setUsername("user");
+        testUser.setEmail("test@example.com");
+        testUser.setRoles(Set.of(Role.GUEST));
+        testUser.setEnabled(true);
 
-        List<AppUser> result = userService.searchUsers("user", "test");
-        assertThat(result).isEqualTo(expected);
+        when(userRepository.findByUsernameContainingIgnoreCaseAndEmailContainingIgnoreCase("user", "test"))
+                .thenReturn(List.of(testUser));
+
+        // Call service (returns DTOs)
+        List<AppUserResponseDto> result = userService.searchUsers("user", "test");
+
+        // Assertions
+        assertThat(result).hasSize(1);
+        AppUserResponseDto dto = result.get(0);
+        assertThat(dto.username()).isEqualTo("user");
+        assertThat(dto.email()).isEqualTo("test@example.com");
     }
 
     @Test

@@ -1,10 +1,18 @@
 package com.worldcup.hotelbooking.user;
 
+import com.worldcup.hotelbooking.booking.booking.Booking;
 import com.worldcup.hotelbooking.booking.booking.BookingMapper;
 import com.worldcup.hotelbooking.booking.booking.BookingResponseDto;
+import com.worldcup.hotelbooking.chat.ChatMessageRepository;
+import com.worldcup.hotelbooking.chat.Conversation;
+import com.worldcup.hotelbooking.chat.ConversationRepository;
 import com.worldcup.hotelbooking.notification.NotificationService;
+import com.worldcup.hotelbooking.payment.PaymentRepository;
+import com.worldcup.hotelbooking.review.ReviewRepository;
+import com.worldcup.hotelbooking.security.RefreshTokenRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +30,31 @@ public class AppUserServiceImpl implements AppUserService {
     private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidator passwordValidator;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final PaymentRepository paymentRepository;
+    private final ReviewRepository reviewRepository;           // new
+    private final ChatMessageRepository chatMessageRepository; // new
+    private final ConversationRepository conversationRepository; // new// added
 
-
-    public AppUserServiceImpl(AppUserRepository appUserRepository,
-                              NotificationService notificationService,
-                              PasswordEncoder passwordEncoder,
-                              PasswordValidator passwordValidator) {
+    public AppUserServiceImpl(
+            AppUserRepository appUserRepository,
+            NotificationService notificationService,
+            PasswordEncoder passwordEncoder,
+            PasswordValidator passwordValidator,
+            RefreshTokenRepository refreshTokenRepository,
+            PaymentRepository paymentRepository,
+            ReviewRepository reviewRepository,                // new
+            ChatMessageRepository chatMessageRepository,      // new
+            ConversationRepository conversationRepository) {   // added
         this.appUserRepository = appUserRepository;
         this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;
         this.passwordValidator = passwordValidator;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.paymentRepository = paymentRepository;
+        this.reviewRepository = reviewRepository;
+        this.chatMessageRepository = chatMessageRepository;
+        this.conversationRepository = conversationRepository;
     }
 
     // 1. Create User
@@ -71,8 +94,9 @@ public class AppUserServiceImpl implements AppUserService {
     // 4. Get All Users with Pagination
     @Override
     @Transactional(readOnly = true)
-    public Page<AppUser> getAllUsers(Pageable pageable) {
-        return appUserRepository.findAll(pageable);
+    public Page<AppUserResponseDto> getAllUsers(Pageable pageable) {
+        Page<AppUser> userPage = appUserRepository.findAll(pageable);
+        return userPage.map(AppUserMapper::toDto);
     }
 
     // 5. Get User by Email
@@ -85,8 +109,53 @@ public class AppUserServiceImpl implements AppUserService {
     // 6. Delete User
     @Override
     public void deleteUser(Long id) {
-        AppUser existingUser = getUserById(id); // This will throw if not found
-        appUserRepository.delete(existingUser);
+        AppUser user = getUserById(id); // eagerly loads bookings
+
+        boolean hasActiveBookings = user.getBookings().stream()
+                .anyMatch(b -> b.getStatus() != Booking.BookingStatus.CANCELLED
+                        && b.getStatus() != Booking.BookingStatus.CHECKED_OUT);
+        if (hasActiveBookings) {
+            throw new UserDeletionException(
+                    "Cannot delete account with active bookings. Please cancel all upcoming bookings first."
+            );}
+
+        // 1. Booking IDs
+        List<Long> bookingIds = user.getBookings().stream()
+                .map(Booking::getId)
+                .collect(Collectors.toList());
+
+        // 2. Delete payments (bulk, clears session)
+        if (!bookingIds.isEmpty()) {
+            paymentRepository.deleteByBookingIdIn(bookingIds);
+        }
+
+        // 3. Delete reviews (bulk, clears session)
+        if (!bookingIds.isEmpty()) {
+            reviewRepository.deleteByBookingIdIn(bookingIds);
+        }
+
+        // 4. Delete messages sent by the user (bulk, clears session)
+        chatMessageRepository.deleteBySenderId(user.getId());
+
+        // 5. Get conversation IDs where user is guest (must query fresh after previous clears)
+        List<Long> conversationIds = conversationRepository.findAll().stream()
+                .filter(c -> c.getGuest().getId().equals(user.getId()))
+                .map(Conversation::getId)
+                .collect(Collectors.toList());
+
+        // 6. Delete messages in those conversations (bulk, clears session)
+        if (!conversationIds.isEmpty()) {
+            chatMessageRepository.deleteByConversationIds(conversationIds);
+        }
+
+        // 7. Delete conversations where user is guest (bulk, clears session)
+        conversationRepository.deleteByGuestId(user.getId());
+
+        // 8. Delete refresh tokens (bulk, clears session)
+        refreshTokenRepository.deleteByUser(user);
+
+        // 9. Finally delete the user (now all references are gone)
+        appUserRepository.delete(user);
     }
 
     // 7. Update User (Full update)
@@ -123,21 +192,20 @@ public class AppUserServiceImpl implements AppUserService {
     // 10. Search Users (Optional - not in interface, but useful)
     @Override
     @Transactional(readOnly = true)
-    public List<AppUser> searchUsers(String username, String email) {
-        // Use the repository query method if you have it
-        // If not, we'll create a fallback
-
-        // Option 1: If you have the repository method
+    public List<AppUserResponseDto> searchUsers(String username, String email) {
+        List<AppUser> users;
         if (username != null && email != null) {
-            return appUserRepository.findByUsernameContainingIgnoreCaseAndEmailContainingIgnoreCase(username, email);
+            users = appUserRepository.findByUsernameContainingIgnoreCaseAndEmailContainingIgnoreCase(username, email);
         } else if (username != null) {
-            return appUserRepository.findByUsernameContainingIgnoreCase(username);
+            users = appUserRepository.findByUsernameContainingIgnoreCase(username);
         } else if (email != null) {
-            return appUserRepository.findByEmailContainingIgnoreCase(email);
+            users = appUserRepository.findByEmailContainingIgnoreCase(email);
         } else {
-            // If both are null, return all users
-            return appUserRepository.findAll();
+            users = appUserRepository.findAll();
         }
+        return users.stream()
+                .map(AppUserMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     // 11. Partial Update Helper
@@ -176,5 +244,21 @@ public class AppUserServiceImpl implements AppUserService {
         AppUser user = getUserById(id);
         user.setRoles(roles);
         return appUserRepository.save(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AppUserResponseDto> getAllUsers(Pageable pageable, String username, String email) {
+        Specification<AppUser> spec = (root, query, cb) -> cb.conjunction();
+
+        if (username != null && !username.isBlank()) {
+            spec = spec.and(UserSpecifications.usernameContains(username));
+        }
+        if (email != null && !email.isBlank()) {
+            spec = spec.and(UserSpecifications.emailContains(email));
+        }
+
+        Page<AppUser> userPage = appUserRepository.findAll(spec, pageable);
+        return userPage.map(AppUserMapper::toDto);
     }
 }

@@ -11,6 +11,8 @@ import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutDateAreRe
 import com.worldcup.hotelbooking.catalog.query.hotel.mapper.HotelCatalogMapper;
 import com.worldcup.hotelbooking.catalog.roomtype.RoomType;
 import com.worldcup.hotelbooking.catalog.storage.PhotoUrlResolver;
+import com.worldcup.hotelbooking.tournament.match.MatchRepository;
+import com.worldcup.hotelbooking.tournament.stadium.StadiumRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,8 @@ class HotelCatalogServiceImplTest {
     private HotelCatalogMapper hotelCatalogMapper;
     private HotelPhotoRepository hotelPhotoRepository;
     private PhotoUrlResolver photoUrlResolver;
+    private MatchRepository matchRepository;
+    private StadiumRepository stadiumRepository;
     private HotelCatalogServiceImpl service;
 
     @BeforeEach
@@ -42,13 +46,17 @@ class HotelCatalogServiceImplTest {
         hotelCatalogMapper = mock(HotelCatalogMapper.class);
         hotelPhotoRepository = mock(HotelPhotoRepository.class);
         photoUrlResolver = mock(PhotoUrlResolver.class);
+        matchRepository = mock(MatchRepository.class);
+        stadiumRepository = mock(StadiumRepository.class);
 
         service = new HotelCatalogServiceImpl(
                 hotelRepository,
                 enhancedPricingService,
                 hotelCatalogMapper,
                 hotelPhotoRepository,
-                photoUrlResolver
+                photoUrlResolver,
+                matchRepository,
+                stadiumRepository
         );
     }
 

@@ -6,6 +6,7 @@ import com.worldcup.hotelbooking.catalog.hotel.Hotel;
 import com.worldcup.hotelbooking.user.AppUser;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -92,6 +93,7 @@ public class Booking {
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
+    @BatchSize(size = 10)
     private List<BookingRoom> bookingRooms = new ArrayList<>();
 
     // ---------------- Constructors ----------------
