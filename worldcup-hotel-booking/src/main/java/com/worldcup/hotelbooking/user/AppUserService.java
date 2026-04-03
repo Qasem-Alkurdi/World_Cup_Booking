@@ -5,12 +5,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface AppUserService {
-    // Original methods
+
     AppUser createUser(AppUserRequestDto dto);
 
     AppUser getUserById(Long id);
@@ -25,14 +25,13 @@ public interface AppUserService {
 
     List<BookingResponseDto> getUserBookings(Long userId);
 
-    // New methods
-    Page<AppUser> getAllUsers(Pageable pageable);
+    Page<AppUserResponseDto> getAllUsers(Pageable pageable);
+
+    Page<AppUserResponseDto> getAllUsers(Pageable pageable, String username, String email);
 
     AppUser saveUser(AppUser user);
 
-    // Add search method to interface
-    List<AppUser> searchUsers(String username, String email);
-
+    List<AppUserResponseDto> searchUsers(String username, String email);
     AppUser partialUpdateUser(Long id, Map<String, Object> updates);
 
     AppUser updateUserRoles(Long id, Set<Role> roles);

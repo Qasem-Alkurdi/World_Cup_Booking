@@ -14,6 +14,14 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      */
     List<ChatMessage> findByConversationIdOrderBySentAtAsc(Long conversationId);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ChatMessage m WHERE m.sender.id = :senderId")
+    void deleteBySenderId(@Param("senderId") Long senderId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ChatMessage m WHERE m.conversation.id IN :conversationIds")
+    void deleteByConversationIds(@Param("conversationIds") List<Long> conversationIds);
+
     /**
      * Count messages sent by the OTHER party that this user has not read yet.
      */

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -22,11 +23,24 @@ public class MatchService {
     // Basic CRUD
 
     @Transactional(readOnly = true)
-    public Page<Match> getAllMatches(Pageable pageable, Match.MatchStage stage) {
-        if (stage != null) {
-            return matchRepository.findByStage(stage, pageable);
+    public Page<Match> getAllMatches(Pageable pageable, String stageParam) {
+        if (stageParam == null) {
+            return matchRepository.findAll(pageable);
         }
-        return matchRepository.findAll(pageable);
+
+        Match.MatchStage stage;
+        try {
+            stage = Match.MatchStage.valueOf(stageParam.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Provide a friendly error with valid options
+            String validValues = String.join(", ", Arrays.stream(Match.MatchStage.values())
+                    .map(Enum::name)
+                    .toList());
+            throw new IllegalArgumentException(
+                    "Invalid stage value: '" + stageParam + "'. Valid values are: " + validValues
+            );
+        }
+        return matchRepository.findByStage(stage, pageable);
     }
 
     @Transactional(readOnly = true)

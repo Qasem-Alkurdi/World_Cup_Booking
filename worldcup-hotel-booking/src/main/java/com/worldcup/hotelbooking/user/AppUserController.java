@@ -42,14 +42,15 @@ public class AppUserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction) {
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email) {
 
         Sort.Direction sortDirection = direction.equalsIgnoreCase("desc")
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
 
-        Page<AppUser> usersPage = appUserService.getAllUsers(pageable);
-        Page<AppUserResponseDto> responsePage = usersPage.map(AppUserMapper::toDto);
+        Page<AppUserResponseDto> responsePage = appUserService.getAllUsers(pageable, username, email);
         return ResponseEntity.ok(responsePage);
     }
 
@@ -60,7 +61,7 @@ public class AppUserController {
         return appUserService.getUserByEmail(email)
                 .map(AppUserMapper::toDto)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new AppUserNotFoundException("User not found with email: " + email));
     }
 
     @PutMapping("/{id}")
@@ -102,16 +103,12 @@ public class AppUserController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Search users by username or email (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AppUserResponseDto>> searchUsers(
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email) {
-
-        List<AppUser> users = appUserService.searchUsers(username, email);
-        List<AppUserResponseDto> responseDto = users.stream()
-                .map(AppUserMapper::toDto)
-                .toList();
+        List<AppUserResponseDto> responseDto = appUserService.searchUsers(username, email);
         return ResponseEntity.ok(responseDto);
     }
 
