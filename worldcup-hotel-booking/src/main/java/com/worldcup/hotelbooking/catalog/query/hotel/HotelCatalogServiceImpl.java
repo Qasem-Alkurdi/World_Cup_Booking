@@ -6,6 +6,8 @@ import com.worldcup.hotelbooking.catalog.hotel.HotelRepository;
 import com.worldcup.hotelbooking.catalog.hotelphoto.HotelPhotoRepository;
 import com.worldcup.hotelbooking.catalog.hotelphoto.dto.HotelPrimaryPhotoProjection;
 import com.worldcup.hotelbooking.catalog.query.hotel.dto.HotelCatalogResponseDto;
+import com.worldcup.hotelbooking.catalog.query.hotel.dto.HotelCatalogSearchMode;
+import com.worldcup.hotelbooking.catalog.query.hotel.dto.HotelCatalogSearchResponseDto;
 import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutBeforeCheckIn;
 import com.worldcup.hotelbooking.catalog.query.hotel.exception.CheckOutDateAreRequired;
 import com.worldcup.hotelbooking.catalog.query.hotel.mapper.HotelCatalogMapper;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class HotelCatalogServiceImpl implements HotelCatalogService {
+
     private static final List<String> ALLOWED_SORT_FIELDS =
             List.of("id", "name", "city", "distance", "price", "rating", "reviewCount");
 
@@ -37,6 +40,7 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
             Set.of("id", "name", "city", "rating", "reviewCount");
 
     private static final int MAX_HOTELS_FOR_COMPUTED_PROCESSING = 500;
+    private static final double DEFAULT_MATCH_OR_STADIUM_RADIUS_KM = 5.0;
 
     private final HotelPhotoRepository hotelPhotoRepository;
     private final PhotoUrlResolver photoUrlResolver;
@@ -46,13 +50,15 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
     private final MatchRepository matchRepository;
     private final StadiumRepository stadiumRepository;
 
-    public HotelCatalogServiceImpl(HotelRepository hotelRepository,
-                                   EnhancedPricingServiceImpl enhancedPricingServiceImpl,
-                                   HotelCatalogMapper hotelCatalogMapper,
-                                   HotelPhotoRepository hotelPhotoRepository,
-                                   PhotoUrlResolver photoUrlResolver,
-                                   MatchRepository matchRepository,
-                                   StadiumRepository stadiumRepository) {
+    public HotelCatalogServiceImpl(
+            HotelRepository hotelRepository,
+            EnhancedPricingServiceImpl enhancedPricingServiceImpl,
+            HotelCatalogMapper hotelCatalogMapper,
+            HotelPhotoRepository hotelPhotoRepository,
+            PhotoUrlResolver photoUrlResolver,
+            MatchRepository matchRepository,
+            StadiumRepository stadiumRepository
+    ) {
         this.hotelRepository = hotelRepository;
         this.enhancedPricingServiceImpl = enhancedPricingServiceImpl;
         this.hotelCatalogMapper = hotelCatalogMapper;
@@ -64,10 +70,133 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<HotelCatalogResponseDto> search(Pageable pageable, HotelCatalogCriteria criteria) {
+    public HotelCatalogSearchResponseDto search(Pageable pageable, HotelCatalogCriteria criteria) {
         validateLocationReference(criteria);
-        resolveLocationReference(criteria);
 
+        if (shouldUseDefaultRadius(criteria)) {
+            return searchWithDefaultRadiusAndFallback(pageable, criteria);
+        }
+
+        SearchExecutionContext context = resolveSearchExecutionContext(criteria);
+        Page<HotelCatalogResponseDto> result = executeSearch(pageable, context.criteria());
+
+        return new HotelCatalogSearchResponseDto(
+                result,
+                HotelCatalogSearchMode.NORMAL,
+                false,
+                "Catalog retrieved successfully"
+        );
+    }
+
+    private HotelCatalogSearchResponseDto searchWithDefaultRadiusAndFallback(
+            Pageable pageable,
+            HotelCatalogCriteria originalCriteria
+    ) {
+        SearchExecutionContext resolvedContext = resolveSearchExecutionContext(copyCriteria(originalCriteria));
+
+        HotelCatalogCriteria radiusCriteria = copyCriteria(resolvedContext.criteria());
+        radiusCriteria.setMaxDistanceKm(DEFAULT_MATCH_OR_STADIUM_RADIUS_KM);
+        radiusCriteria.setMinDistanceKm(null);
+
+        Page<HotelCatalogResponseDto> radiusResult = executeSearch(pageable, radiusCriteria);
+
+        if (!radiusResult.isEmpty()) {
+            HotelCatalogSearchMode mode = originalCriteria.getMatchId() != null
+                    ? HotelCatalogSearchMode.MATCH_DEFAULT_RADIUS
+                    : HotelCatalogSearchMode.STADIUM_DEFAULT_RADIUS;
+
+            return new HotelCatalogSearchResponseDto(
+                    radiusResult,
+                    mode,
+                    false,
+                    "Showing hotels within " + DEFAULT_MATCH_OR_STADIUM_RADIUS_KM + " km of the selected stadium"
+            );
+        }
+
+        Stadium stadium = resolvedContext.resolvedStadium();
+        if (stadium == null || stadium.getCity() == null || stadium.getCity().isBlank()) {
+            return new HotelCatalogSearchResponseDto(
+                    radiusResult,
+                    HotelCatalogSearchMode.NORMAL,
+                    false,
+                    "No hotels found within " + DEFAULT_MATCH_OR_STADIUM_RADIUS_KM + " km, and stadium city is unavailable for fallback"
+            );
+        }
+
+        HotelCatalogCriteria cityFallbackCriteria = copyCriteria(originalCriteria);
+        cityFallbackCriteria.setMatchId(null);
+        cityFallbackCriteria.setStadiumId(null);
+        cityFallbackCriteria.setLatitude(null);
+        cityFallbackCriteria.setLongitude(null);
+        cityFallbackCriteria.setMinDistanceKm(null);
+        cityFallbackCriteria.setMaxDistanceKm(null);
+        cityFallbackCriteria.setCity(stadium.getCity());
+
+        Page<HotelCatalogResponseDto> cityFallbackResult = executeSearch(pageable, cityFallbackCriteria);
+
+        return new HotelCatalogSearchResponseDto(
+                cityFallbackResult,
+                HotelCatalogSearchMode.SAME_CITY_FALLBACK,
+                true,
+                "No hotels found within " + DEFAULT_MATCH_OR_STADIUM_RADIUS_KM
+                        + " km of the selected stadium. Showing hotels in the same city instead"
+        );
+    }
+
+    private boolean shouldUseDefaultRadius(HotelCatalogCriteria criteria) {
+        boolean hasDefaultLocationReference = criteria.getMatchId() != null || criteria.getStadiumId() != null;
+        boolean hasDistanceRange = criteria.getMinDistanceKm() != null || criteria.getMaxDistanceKm() != null;
+        return hasDefaultLocationReference && !hasDistanceRange;
+    }
+
+    private SearchExecutionContext resolveSearchExecutionContext(HotelCatalogCriteria criteria) {
+        HotelCatalogCriteria workingCriteria = copyCriteria(criteria);
+
+        Stadium resolvedStadium = null;
+
+        if (workingCriteria.getMatchId() != null) {
+            Match match = matchRepository.findById(workingCriteria.getMatchId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Match not found with id: " + workingCriteria.getMatchId()
+                    ));
+
+            Stadium stadium = match.getStadium();
+            if (stadium == null) {
+                throw new IllegalArgumentException(
+                        "The selected match does not have an assigned stadium"
+                );
+            }
+
+            if (stadium.getLatitude() == null || stadium.getLongitude() == null) {
+                throw new IllegalArgumentException(
+                        "The selected match stadium does not have valid coordinates"
+                );
+            }
+
+            workingCriteria.setLatitude(stadium.getLatitude());
+            workingCriteria.setLongitude(stadium.getLongitude());
+            resolvedStadium = stadium;
+        } else if (workingCriteria.getStadiumId() != null) {
+            Stadium stadium = stadiumRepository.findById(workingCriteria.getStadiumId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Stadium not found with id: " + workingCriteria.getStadiumId()
+                    ));
+
+            if (stadium.getLatitude() == null || stadium.getLongitude() == null) {
+                throw new IllegalArgumentException(
+                        "The selected stadium does not have valid coordinates"
+                );
+            }
+
+            workingCriteria.setLatitude(stadium.getLatitude());
+            workingCriteria.setLongitude(stadium.getLongitude());
+            resolvedStadium = stadium;
+        }
+
+        return new SearchExecutionContext(workingCriteria, resolvedStadium);
+    }
+
+    private Page<HotelCatalogResponseDto> executeSearch(Pageable pageable, HotelCatalogCriteria criteria) {
         validateSortFields(pageable);
         validateDistanceCriteria(criteria);
         validateSortDependencies(criteria, pageable);
@@ -76,8 +205,9 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
 
         boolean hasPriceFilter = hasPriceFilter(criteria);
         boolean hasComputedSort = hasComputedSort(pageable);
+        boolean shouldComputeDistance = hasCoordinates(criteria);
 
-        if (!hasPriceFilter && !hasComputedSort) {
+        if (!hasPriceFilter && !hasComputedSort && !shouldComputeDistance) {
             Pageable dbPageable = PageRequest.of(
                     pageable.getPageNumber(),
                     pageable.getPageSize(),
@@ -98,7 +228,9 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         List<HotelCatalogResponseDto> content = hotels.stream()
                 .map(hotel -> hotelCatalogMapper.toDto(
                         hotel,
-                        primaryPhotoUrls.get(hotel.getId())
+                        primaryPhotoUrls.get(hotel.getId()),
+                        null,
+                        null
                 ))
                 .toList();
 
@@ -123,7 +255,7 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         List<Hotel> hotels = hotelRepository.findAll(spec, limitedPageable).getContent();
 
         List<HotelComputedView> computedViews = hotels.stream()
-                .map(hotel -> toComputedView(hotel, criteria))
+                .map(hotel -> toComputedView(hotel, criteria, pageable))
                 .filter(view -> matchesPriceRange(view, criteria))
                 .toList();
 
@@ -131,16 +263,17 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         sortedViews.sort(buildComparator(pageable));
 
         List<HotelComputedView> pagedViews = slicePage(sortedViews, pageable);
-        List<Hotel> pagedHotels = pagedViews.stream()
-                .map(HotelComputedView::hotel)
-                .toList();
 
-        Map<Long, String> primaryPhotoUrls = loadPrimaryPhotoUrls(pagedHotels);
+        Map<Long, String> primaryPhotoUrls = loadPrimaryPhotoUrls(
+                pagedViews.stream().map(HotelComputedView::hotel).toList()
+        );
 
-        List<HotelCatalogResponseDto> content = pagedHotels.stream()
-                .map(hotel -> hotelCatalogMapper.toDto(
-                        hotel,
-                        primaryPhotoUrls.get(hotel.getId())
+        List<HotelCatalogResponseDto> content = pagedViews.stream()
+                .map(view -> hotelCatalogMapper.toDto(
+                        view.hotel(),
+                        primaryPhotoUrls.get(view.hotel().getId()),
+                        view.minPrice(),
+                        view.distanceKm()
                 ))
                 .toList();
 
@@ -194,15 +327,15 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         return spec;
     }
 
-    private HotelComputedView toComputedView(Hotel hotel, HotelCatalogCriteria criteria) {
+    private HotelComputedView toComputedView(Hotel hotel, HotelCatalogCriteria criteria, Pageable pageable) {
         BigDecimal minPrice = null;
         Double distanceKm = null;
 
-        if (hasPriceFilter(criteria) || criteriaRequiresPriceSort(criteria)) {
+        if (hasPriceFilter(criteria) || isSortingByPrice(pageable)) {
             minPrice = calculateMinimumHotelPrice(hotel, criteria);
         }
 
-        if (criteriaRequiresDistanceSort(criteria)) {
+        if (hasCoordinates(criteria)) {
             distanceKm = calculateDistanceKm(
                     criteria.getLatitude(),
                     criteria.getLongitude(),
@@ -316,48 +449,6 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         }
     }
 
-    private void resolveLocationReference(HotelCatalogCriteria criteria) {
-        if (criteria.getMatchId() != null) {
-            Match match = matchRepository.findById(criteria.getMatchId())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Match not found with id: " + criteria.getMatchId()
-                    ));
-
-            Stadium stadium = match.getStadium();
-            if (stadium == null) {
-                throw new IllegalArgumentException(
-                        "The selected match does not have an assigned stadium"
-                );
-            }
-
-            if (stadium.getLatitude() == null || stadium.getLongitude() == null) {
-                throw new IllegalArgumentException(
-                        "The selected match stadium does not have valid coordinates"
-                );
-            }
-
-            criteria.setLatitude(stadium.getLatitude());
-            criteria.setLongitude(stadium.getLongitude());
-            return;
-        }
-
-        if (criteria.getStadiumId() != null) {
-            Stadium stadium = stadiumRepository.findById(criteria.getStadiumId())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Stadium not found with id: " + criteria.getStadiumId()
-                    ));
-
-            if (stadium.getLatitude() == null || stadium.getLongitude() == null) {
-                throw new IllegalArgumentException(
-                        "The selected stadium does not have valid coordinates"
-                );
-            }
-
-            criteria.setLatitude(stadium.getLatitude());
-            criteria.setLongitude(stadium.getLongitude());
-        }
-    }
-
     private void validateDistanceCriteria(HotelCatalogCriteria criteria) {
         boolean hasDistanceFilter = criteria.getMinDistanceKm() != null
                 || criteria.getMaxDistanceKm() != null;
@@ -405,12 +496,8 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
                 .anyMatch(order -> order.getProperty().equals("price"));
     }
 
-    private boolean criteriaRequiresDistanceSort(HotelCatalogCriteria criteria) {
+    private boolean hasCoordinates(HotelCatalogCriteria criteria) {
         return criteria.getLatitude() != null && criteria.getLongitude() != null;
-    }
-
-    private boolean criteriaRequiresPriceSort(HotelCatalogCriteria criteria) {
-        return criteria.getCheckInDate() != null && criteria.getCheckOutDate() != null;
     }
 
     private Sort extractDatabaseSortableSort(Sort requestedSort) {
@@ -493,9 +580,6 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         }
     }
 
-    /**
-     * Haversine formula
-     */
     private Double calculateDistanceKm(Double lat1, Double lon1, Double lat2, Double lon2) {
         if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
             return null;
@@ -515,10 +599,60 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         return earthRadiusKm * c;
     }
 
+    private HotelCatalogCriteria copyCriteria(HotelCatalogCriteria source) {
+        HotelCatalogCriteria copy = new HotelCatalogCriteria();
+
+        copy.setName(source.getName());
+        copy.setCity(source.getCity());
+        copy.setCountry(source.getCountry());
+
+        copy.setHasGym(source.getHasGym());
+        copy.setHasWifi(source.getHasWifi());
+        copy.setHasParking(source.getHasParking());
+        copy.setHasBreakfast(source.getHasBreakfast());
+        copy.setHasAirConditioning(source.getHasAirConditioning());
+        copy.setHasHeating(source.getHasHeating());
+        copy.setHasPool(source.getHasPool());
+        copy.setHasSpa(source.getHasSpa());
+        copy.setHasElevator(source.getHasElevator());
+        copy.setHasRestaurant(source.getHasRestaurant());
+        copy.setHasRoomService(source.getHasRoomService());
+        copy.setHasLaundry(source.getHasLaundry());
+        copy.setHasAirportShuttle(source.getHasAirportShuttle());
+        copy.setHasAccessibleFacilities(source.getHasAccessibleFacilities());
+        copy.setPetFriendly(source.getPetFriendly());
+
+        copy.setMatchId(source.getMatchId());
+        copy.setStadiumId(source.getStadiumId());
+
+        copy.setLatitude(source.getLatitude());
+        copy.setLongitude(source.getLongitude());
+        copy.setMaxDistanceKm(source.getMaxDistanceKm());
+        copy.setMinDistanceKm(source.getMinDistanceKm());
+
+        copy.setCheckInDate(source.getCheckInDate());
+        copy.setCheckOutDate(source.getCheckOutDate());
+
+        copy.setMinTotalPrice(source.getMinTotalPrice());
+        copy.setMaxTotalPrice(source.getMaxTotalPrice());
+        copy.setNumberOfRooms(source.getNumberOfRooms());
+        copy.setMinRating(source.getMinRating());
+        copy.setMaxRating(source.getMaxRating());
+        copy.setMinReviewCount(source.getMinReviewCount());
+
+        return copy;
+    }
+
     private record HotelComputedView(
             Hotel hotel,
             BigDecimal minPrice,
             Double distanceKm
+    ) {
+    }
+
+    private record SearchExecutionContext(
+            HotelCatalogCriteria criteria,
+            Stadium resolvedStadium
     ) {
     }
 }
