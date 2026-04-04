@@ -1,4 +1,4 @@
-package com.worldcup.hotelbooking.user.user;
+package com.worldcup.hotelbooking.user;
 
 import com.worldcup.hotelbooking.auth.LoginRequest;
 import com.worldcup.hotelbooking.auth.LoginResponse;
