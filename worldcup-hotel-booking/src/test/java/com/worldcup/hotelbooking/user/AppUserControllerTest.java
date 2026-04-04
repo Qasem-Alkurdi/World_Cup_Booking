@@ -1,4 +1,4 @@
-package com.worldcup.hotelbooking.user.user;
+package com.worldcup.hotelbooking.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.worldcup.hotelbooking.booking.booking.BookingResponseDto;

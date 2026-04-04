@@ -1,4 +1,4 @@
-package com.worldcup.hotelbooking.user.user;
+package com.worldcup.hotelbooking.user;
 
 import com.worldcup.hotelbooking.user.PasswordValidationException;
 import com.worldcup.hotelbooking.user.PasswordValidator;
