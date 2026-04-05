@@ -2,7 +2,8 @@ package com.worldcup.hotelbooking.tournament.match;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/matches")
@@ -24,15 +26,15 @@ import java.util.List;
 public class MatchController {
 
     private final MatchService matchService;
+    private final Validator validator; // Inject JSR-303 validator for manual validation
 
-    // Public read endpoints
+    // ==================== PUBLIC READ ENDPOINTS ====================
 
     @GetMapping
     @Operation(summary = "Get all matches with pagination and optional stage filter")
     public ResponseEntity<Page<Match>> getAllMatches(
             @ParameterObject @PageableDefault(size = 20, sort = "matchDateTime") Pageable pageable,
-            @RequestParam(required = false) Match.MatchStage stage) {
-
+            @RequestParam(required = false) String stage) {
         Page<Match> page = matchService.getAllMatches(pageable, stage);
         return ResponseEntity.ok(page);
     }
@@ -68,12 +70,43 @@ public class MatchController {
         return ResponseEntity.ok(matchService.getMatchesInCityBetweenDates(city, start, end));
     }
 
-    // Admin-only write endpoints
+    @GetMapping("/search")
+    @Operation(summary = "Search matches with multiple filters and pagination")
+    public ResponseEntity<Page<Match>> searchMatches(
+            @RequestParam(required = false) String stage,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) Long stadiumId,
+            @RequestParam(required = false) String team,
+            @RequestParam(required = false) Boolean derby,
+            @RequestParam(required = false) Boolean opening,
+            @PageableDefault(size = 20, sort = "matchDateTime") Pageable pageable) {
+
+        Match.MatchStage stageEnum = null;
+        if (stage != null) {
+            try {
+                stageEnum = Match.MatchStage.valueOf(stage.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid stage value: " + stage);
+            }
+        }
+        Page<Match> result = matchService.searchMatches(
+                stageEnum, startDate, endDate, city, stadiumId, team, derby, opening, pageable);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== ADMIN WRITE ENDPOINTS ====================
+    // Note: @Valid is removed. Validation happens manually after @PreAuthorize.
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new match (Admin only)")
-    public ResponseEntity<Match> createMatch(@Valid @RequestBody Match match) {
+    public ResponseEntity<Match> createMatch(@RequestBody Match match) {
+        // 1. Authorization already passed (only ADMIN reaches here)
+        // 2. Manual validation
+        validateMatch(match);
+        // 3. Business logic
         Match created = matchService.createMatch(match);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
@@ -81,7 +114,11 @@ public class MatchController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update an existing match (Admin only)")
-    public ResponseEntity<Match> updateMatch(@PathVariable Long id, @Valid @RequestBody Match match) {
+    public ResponseEntity<Match> updateMatch(@PathVariable Long id, @RequestBody Match match) {
+        // 1. Authorization already passed (only ADMIN reaches here)
+        // 2. Manual validation
+        validateMatch(match);
+        // 3. Business logic
         Match updated = matchService.updateMatch(id, match);
         return ResponseEntity.ok(updated);
     }
@@ -94,22 +131,37 @@ public class MatchController {
         return ResponseEntity.noContent().build();
     }
 
+    // ==================== PRIVATE VALIDATION METHOD ====================
 
-    @GetMapping("/search")
-    @Operation(summary = "Search matches with multiple filters and pagination")
-    public ResponseEntity<Page<Match>> searchMatches(
-            @RequestParam(required = false) Match.MatchStage stage,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
-            @RequestParam(required = false) String city,
-            @RequestParam(required = false) Long stadiumId,
-            @RequestParam(required = false) String team,
-            @RequestParam(required = false) Boolean derby,
-            @RequestParam(required = false) Boolean opening,
-            @PageableDefault(size = 20, sort = "matchDateTime") Pageable pageable) {
-
-        Page<Match> result = matchService.searchMatches(
-                stage, startDate, endDate, city, stadiumId, team, derby, opening, pageable);
-        return ResponseEntity.ok(result);
+    /**
+     * Manually validates required fields of a Match object.
+     * Throws IllegalArgumentException with clear message if any field is invalid.
+     */
+    private void validateMatch(Match match) {
+        if (match.getStadium() == null || match.getStadium().getId() == null) {
+            throw new IllegalArgumentException("stadium must not be null");
+        }
+        if (match.getStage() == null) {
+            throw new IllegalArgumentException("stage must not be null");
+        }
+        if (match.getMatchDateTime() == null) {
+            throw new IllegalArgumentException("matchDateTime must not be null");
+        }
+        if (match.getHomeTeam() == null || match.getHomeTeam().isBlank()) {
+            throw new IllegalArgumentException("homeTeam must not be blank");
+        }
+        if (match.getAwayTeam() == null || match.getAwayTeam().isBlank()) {
+            throw new IllegalArgumentException("awayTeam must not be blank");
+        }
+        // Optional: use JSR-303 programmatically if you have more complex annotations
+        Set<ConstraintViolation<Match>> violations = validator.validate(match);
+        if (!violations.isEmpty()) {
+            // Convert violations to a single message
+            String errorMsg = violations.stream()
+                    .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                    .reduce((a, b) -> a + "; " + b)
+                    .orElse("Validation failed");
+            throw new IllegalArgumentException(errorMsg);
+        }
     }
 }

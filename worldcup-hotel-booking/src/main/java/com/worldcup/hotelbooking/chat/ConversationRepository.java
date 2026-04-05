@@ -1,6 +1,7 @@
 package com.worldcup.hotelbooking.chat;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +14,10 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
      * Used by the "find or create" pattern in ChatServiceImpl.
      */
     Optional<Conversation> findByGuestIdAndHotelId(Long guestId, Long hotelId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM Conversation c WHERE c.guest.id = :guestId")
+    void deleteByGuestId(@Param("guestId") Long guestId);
 
     /**
      * Verify that a user is a participant of a conversation —

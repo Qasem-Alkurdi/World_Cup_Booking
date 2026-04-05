@@ -59,15 +59,16 @@ public class BookingController {
 
     @Operation(summary = "Create a new booking", description = "Create a new booking with the provided details. The request must include user ID, hotel ID, check-in and check-out dates, and room details.")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or @bookingAuthorizationService.isCurrentUser(#bookingRequest.userId, authentication) or @bookingAuthorizationService.isHimTheHotelOwnerOfTheBookingUsingTheHotelId(#bookingRequest.hotelId,authentication)" )
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','GUEST')")
     public ResponseEntity<BookingResponseDto> createBooking(
             @Valid @RequestBody BookingRequestDto bookingRequest,
-            UriComponentsBuilder uriBuilder) {
+            UriComponentsBuilder uriBuilder,
+            @AuthenticationPrincipal Jwt jwt) {
 
         // Create the booking entity
         Booking booking = BookingMapper.toEntity(
                 bookingRequest,
-                appUserService.getUserById(bookingRequest.getUserId()),
+                appUserService.getUserById(extractUserId(jwt)),
                 hotelService.findById(bookingRequest.getHotelId())
         );
 
@@ -170,11 +171,12 @@ public class BookingController {
     @PreAuthorize("hasRole('ADMIN') or @bookingAuthorizationService.isHimTheBookingUser(#id, authentication)")
     public ResponseEntity<BookingResponseDto> updateBooking(
             @PathVariable long id,
-            @RequestBody @Valid BookingRequestDto bookingRequest) {
+            @RequestBody @Valid BookingRequestDto bookingRequest,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Booking booking = BookingMapper.toEntity(
                 bookingRequest,
-                appUserService.getUserById(bookingRequest.getUserId()),
+                appUserService.getUserById(extractUserId(jwt)),
                 hotelService.findById(bookingRequest.getHotelId())
         );
 
@@ -266,7 +268,7 @@ public class BookingController {
     @PreAuthorize("hasRole('ADMIN')")
     public PagedResponse<BookingResponseDto> filterBookings(
             @RequestParam(required = false) Long userId,
-            @RequestParam(required =false) Long hotelId,
+            @RequestParam(required = false) Long hotelId,
             @RequestParam(required = false) Booking.BookingStatus status,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate,
@@ -378,16 +380,16 @@ public class BookingController {
 
     /**
      * Hotel manager cancels a guest booking with automatic compensation bonus.
-     *
+     * <p>
      * The guest always receives a full 100% base refund PLUS a bonus that increases
      * the closer to check-in the cancellation happens:
-     *
-     *   30+ days  → +10%    14-29 days → +25%    7-13 days → +35%
-     *    3-6 days  → +40%    < 3 days   → +50%
-     *
+     * <p>
+     * 30+ days  → +10%    14-29 days → +25%    7-13 days → +35%
+     * 3-6 days  → +40%    < 3 days   → +50%
+     * <p>
      * Example: $200 booking cancelled 2 days before check-in
-     *   base refund $200 + 50% bonus $100 = $300 total payout
-     *
+     * base refund $200 + 50% bonus $100 = $300 total payout
+     * <p>
      * PUT /bookings/123/manager-cancel?reason=Hotel+renovation
      */
     @PutMapping("/{id}/manager-cancel/reason/{reason}")
@@ -416,7 +418,7 @@ public class BookingController {
                 bookingService.previewManagerCancellation(id);
 
         // Perform the actual cancellation
-        Booking cancelledBooking = bookingService.cancelBookingByManager(id, reason,"Hotel manger");
+        Booking cancelledBooking = bookingService.cancelBookingByManager(id, reason, "Hotel manger");
 
         return ResponseEntity.ok(BookingMapper.toManagerCancellationDto(cancelledBooking, policyResult));
     }

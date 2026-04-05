@@ -1,13 +1,9 @@
-package com.worldcup.hotelbooking.user.user;
+package com.worldcup.hotelbooking.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.worldcup.hotelbooking.booking.booking.BookingResponseDto;
 import com.worldcup.hotelbooking.security.JwtTokenService;
 import com.worldcup.hotelbooking.security.RateLimitService;
-import com.worldcup.hotelbooking.user.AppUser;
-import com.worldcup.hotelbooking.user.AppUserService;
-import com.worldcup.hotelbooking.user.Role;
-import com.worldcup.hotelbooking.user.UserRoleUpdateDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,28 +24,25 @@ import java.util.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @TestPropertySource(properties = "app.storage.upload-dir=./test-uploads")
 class AppUserControllerTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired
     private MockMvc mockMvc;
 
+    // REMOVED @MockitoBean StorageProperties — let the real bean read the property
     @MockitoBean
     private AppUserService appUserService;
-
-    // REMOVED @MockitoBean StorageProperties — let the real bean read the property
-
     @MockitoBean
     private RateLimitService rateLimitService;
-
     @MockitoBean
     private JwtTokenService jwtTokenService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private AppUser sampleUser;
 
     @BeforeEach
@@ -74,9 +67,25 @@ class AppUserControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getAllUsers_paginated_returnsPage() throws Exception {
-        Page<AppUser> page = new PageImpl<>(List.of(sampleUser), PageRequest.of(0, 20), 1);
-        when(appUserService.getAllUsers(any(Pageable.class))).thenReturn(page);
-        mockMvc.perform(get("/users").param("page", "0").param("size", "20"))
+        // Ensure sampleUser has username "john_doe"
+        sampleUser.setUsername("john_doe");
+
+        AppUserResponseDto sampleDto = new AppUserResponseDto(
+                sampleUser.getId(),
+                sampleUser.getUsername(),
+                sampleUser.getEmail(),
+                sampleUser.getRoles(),
+                sampleUser.isEnabled(),
+                null
+        );
+        Page<AppUserResponseDto> page = new PageImpl<>(List.of(sampleDto), PageRequest.of(0, 20), 1);
+
+        // Mock the overloaded method with Pageable + String + String
+        when(appUserService.getAllUsers(any(Pageable.class), isNull(), isNull())).thenReturn(page);
+
+        mockMvc.perform(get("/users")
+                        .param("page", "0")
+                        .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].USERNAME").value("john_doe"));
     }
@@ -107,7 +116,18 @@ class AppUserControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void searchUsers_returnsList() throws Exception {
-        when(appUserService.searchUsers(eq("john"), isNull())).thenReturn(List.of(sampleUser));
+        // Create a sample DTO
+        AppUserResponseDto sampleDto = new AppUserResponseDto(
+                sampleUser.getId(),
+                sampleUser.getUsername(),
+                sampleUser.getEmail(),
+                sampleUser.getRoles(),
+                sampleUser.isEnabled(),
+                null  // bookings can be null or empty for search results
+        );
+
+        when(appUserService.searchUsers(eq("john"), isNull())).thenReturn(List.of(sampleDto));
+
         mockMvc.perform(get("/users/search").param("username", "john"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].USERNAME").value("john_doe"));

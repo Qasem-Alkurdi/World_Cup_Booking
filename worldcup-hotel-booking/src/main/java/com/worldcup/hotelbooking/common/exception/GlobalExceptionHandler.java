@@ -27,9 +27,11 @@ import com.worldcup.hotelbooking.tournament.match.MatchNotFoundException;
 import com.worldcup.hotelbooking.tournament.stadium.StadiumNotFoundException;
 import com.worldcup.hotelbooking.user.AppUserNotFoundException;
 import com.worldcup.hotelbooking.user.PasswordValidationException;
+import com.worldcup.hotelbooking.user.UserDeletionException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -491,6 +493,21 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(UserDeletionException.class)
+    public ResponseEntity<ApiError> handleUserDeletion(UserDeletionException ex, HttpServletRequest request) {
+        ApiError error = new ApiError(
+                Instant.now().toString(),
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(error);
     }
     //user end
 
