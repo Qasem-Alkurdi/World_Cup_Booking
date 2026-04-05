@@ -98,7 +98,9 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         List<HotelCatalogResponseDto> content = hotels.stream()
                 .map(hotel -> hotelCatalogMapper.toDto(
                         hotel,
-                        primaryPhotoUrls.get(hotel.getId())
+                        primaryPhotoUrls.get(hotel.getId()),
+                        null,
+                        null
                 ))
                 .toList();
 
@@ -137,10 +139,12 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
 
         Map<Long, String> primaryPhotoUrls = loadPrimaryPhotoUrls(pagedHotels);
 
-        List<HotelCatalogResponseDto> content = pagedHotels.stream()
-                .map(hotel -> hotelCatalogMapper.toDto(
-                        hotel,
-                        primaryPhotoUrls.get(hotel.getId())
+        List<HotelCatalogResponseDto> content = pagedViews.stream()
+                .map(view -> hotelCatalogMapper.toDto(
+                        view.hotel(),
+                        primaryPhotoUrls.get(view.hotel().getId()),
+                        view.minPrice(),
+                        view.distanceKm()
                 ))
                 .toList();
 
