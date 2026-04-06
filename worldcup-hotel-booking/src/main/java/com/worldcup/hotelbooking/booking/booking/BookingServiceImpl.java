@@ -92,8 +92,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public Page<Booking> getGuestHistory(Long userId, Pageable pageable) {
         Specification<Booking> spec =
-                Specification.where(BookingSpecifications.hasUser(userId))
-                        .and(BookingSpecifications.isPast());
+                Specification.where(BookingSpecifications.hasUser(userId));
         return bookingRepository.findAll(spec, pageable);
     }
 
@@ -480,13 +479,13 @@ public class BookingServiceImpl implements BookingService {
     // ========================================
 
     public CancellationResponse previewCancellation(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdWithRooms(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + bookingId));
         return cancellationPolicyService.previewCancellation(booking);
     }
 
     public CancellationResponse previewManagerCancellation(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdWithRooms(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + bookingId));
         return cancellationPolicyService.calculateManagerCancellation(booking);
     }
@@ -508,7 +507,7 @@ public class BookingServiceImpl implements BookingService {
      *   - Multiple bookings across multiple users/hotels are mutated in one sweep.
      *   - Targeted eviction by key is impossible without iterating every booking id.
      *
-     * For PRODUCTION: Change .minusMinutes(1) → .minusDays(3)
+     * For PRODUCTION: Change .minusMinutes(10) → .minusDays(3)
      */
     @Scheduled(cron = "0 * * * * *")
     @Transactional
@@ -520,8 +519,8 @@ public class BookingServiceImpl implements BookingService {
     })
     public void cancelExpiredPendingBookings() {
 
-        // ⭐ FOR TESTING: 5 minute
-        LocalDateTime expiryTime = LocalDateTime.now().minusMinutes(5);
+        // ⭐ FOR TESTING: 45 minute
+        LocalDateTime expiryTime = LocalDateTime.now().minusMinutes(45);
 
         // ⭐ FOR PRODUCTION: Uncomment this line instead
         // LocalDateTime expiryTime = LocalDateTime.now().minusDays(3);
