@@ -1,7 +1,5 @@
 package com.worldcup.hotelbooking.catalog.query.roomtype.dto;
 
-import lombok.AllArgsConstructor;
-
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -20,7 +18,7 @@ import java.util.List;
  * @param hasPrivateBathroom ── Room amenities ─────────────────────────────────
  * @param primaryPhotoUrl    ── Photos (resolved URLs) ─────────────────────────
  */
-@AllArgsConstructor
+
 public record RoomTypeQueryResponseDto(Long id, Long hotelId, String name, String description, Integer maxAdults,
                                        Integer maxChildren, BigDecimal roomSizeSqm, BigDecimal basePrice,
                                        String currency, BigDecimal totalPrice, BigDecimal nightlyPrice,
