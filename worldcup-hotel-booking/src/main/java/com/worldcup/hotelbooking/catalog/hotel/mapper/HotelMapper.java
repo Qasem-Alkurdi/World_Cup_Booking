@@ -83,6 +83,15 @@ public class HotelMapper {
     }
 
     public static HotelResponseDto toResponse(Hotel h) {
+        Double lat = h.getLatitude();
+        Double lng = h.getLongitude();
+
+        // Fallback to location point if generated columns are null
+        if ((lat == null || lng == null) && h.getLocation() != null) {
+            lat = h.getLocation().getY(); // Y is latitude
+            lng = h.getLocation().getX(); // X is longitude
+        }
+
         return new HotelResponseDto(
                 h.getId(),
                 h.getOwner() != null ? h.getOwner().getId() : null,
@@ -93,8 +102,8 @@ public class HotelMapper {
                 h.getCountry(),
                 h.getCity(),
                 h.getAddressLine(),
-                h.getLatitude(),
-                h.getLongitude(),
+                lat,
+                lng,
                 h.getStatus() != null ? h.getStatus().name() : null,
                 h.isHasWifi(),
                 h.isHasParking(),
