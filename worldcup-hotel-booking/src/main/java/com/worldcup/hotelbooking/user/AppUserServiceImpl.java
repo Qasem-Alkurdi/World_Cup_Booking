@@ -47,7 +47,7 @@ public class AppUserServiceImpl implements AppUserService {
             PaymentRepository paymentRepository,
             ReviewRepository reviewRepository,
             ChatMessageRepository chatMessageRepository,
-            ConversationRepository conversationRepository,NotificationRepository notificationRepository) {
+            ConversationRepository conversationRepository, NotificationRepository notificationRepository) {
         this.appUserRepository = appUserRepository;
         this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;

@@ -40,7 +40,8 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
             Set.of("id", "name", "city", "rating", "reviewCount");
 
     private static final int MAX_HOTELS_FOR_COMPUTED_PROCESSING = 500;
-    private static final List<Double> DEFAULT_RADIUS_STEPS_KM = List.of(5.0, 15.0, 30.0);
+    private static final int MIN_RESULTS_FOR_DEFAULT_RADIUS = 6;
+    private static final List<Double> DEFAULT_RADIUS_STEPS_KM = List.of(5.0, 15.0, 30.0, 50.0);
     private final HotelPhotoRepository hotelPhotoRepository;
     private final PhotoUrlResolver photoUrlResolver;
     private final HotelRepository hotelRepository;
@@ -93,29 +94,74 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
     ) {
         SearchExecutionContext resolvedContext = resolveSearchExecutionContext(copyCriteria(originalCriteria));
 
+        Page<HotelCatalogResponseDto> lastNonEmptyResult = Page.empty(pageable);
+        double lastRadiusTried = DEFAULT_RADIUS_STEPS_KM.get(DEFAULT_RADIUS_STEPS_KM.size() - 1);
+
         for (Double radiusKm : DEFAULT_RADIUS_STEPS_KM) {
             HotelCatalogCriteria radiusCriteria = copyCriteria(resolvedContext.criteria());
             radiusCriteria.setMinDistanceKm(null);
             radiusCriteria.setMaxDistanceKm(radiusKm);
 
             Page<HotelCatalogResponseDto> radiusResult = executeSearch(pageable, radiusCriteria);
+            lastRadiusTried = radiusKm;
 
             if (!radiusResult.isEmpty()) {
+                lastNonEmptyResult = radiusResult;
+            }
+
+            if (radiusResult.getTotalElements() >= MIN_RESULTS_FOR_DEFAULT_RADIUS) {
                 return new HotelCatalogSearchResponseDto(
                         radiusResult,
                         resolveRadiusSearchMode(originalCriteria, radiusKm),
                         radiusKm > 5.0,
-                        buildRadiusMessage(originalCriteria, radiusKm)
+                        buildEnoughResultsMessage(originalCriteria, radiusKm, radiusResult.getTotalElements())
                 );
             }
+        }
+
+        if (!lastNonEmptyResult.isEmpty()) {
+            return new HotelCatalogSearchResponseDto(
+                    lastNonEmptyResult,
+                    resolveRadiusSearchMode(originalCriteria, lastRadiusTried),
+                    true,
+                    buildExpandedButLimitedResultsMessage(
+                            originalCriteria,
+                            lastRadiusTried,
+                            lastNonEmptyResult.getTotalElements()
+                    )
+            );
         }
 
         return new HotelCatalogSearchResponseDto(
                 Page.empty(pageable),
                 HotelCatalogSearchMode.NORMAL,
                 true,
-                "No hotels found within 30 km of the selected stadium"
+                buildNoResultsMessage(originalCriteria, lastRadiusTried)
         );
+    }
+
+    private String buildEnoughResultsMessage(HotelCatalogCriteria criteria, double radiusKm, long total) {
+        String source = criteria.getMatchId() != null ? "match stadium" : "selected stadium";
+
+        if (radiusKm == 5.0) {
+            return "Showing " + total + " hotels within 5 km of the " + source;
+        }
+
+        return "Expanded search to " + (int) radiusKm + " km around the " + source
+                + " to provide more results (" + total + " hotels found)";
+    }
+
+    private String buildExpandedButLimitedResultsMessage(HotelCatalogCriteria criteria, double radiusKm, long total) {
+        String source = criteria.getMatchId() != null ? "match stadium" : "selected stadium";
+
+        return "Expanded search to " + (int) radiusKm + " km around the " + source
+                + ", but only found " + total + " hotels";
+    }
+
+    private String buildNoResultsMessage(HotelCatalogCriteria criteria, double radiusKm) {
+        String source = criteria.getMatchId() != null ? "match stadium" : "selected stadium";
+
+        return "No hotels found within " + (int) radiusKm + " km of the " + source;
     }
 
     private HotelCatalogSearchMode resolveRadiusSearchMode(HotelCatalogCriteria criteria, double radiusKm) {
@@ -124,12 +170,14 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         if (byMatch) {
             if (radiusKm == 5.0) return HotelCatalogSearchMode.MATCH_RADIUS_5KM;
             if (radiusKm == 15.0) return HotelCatalogSearchMode.MATCH_RADIUS_15KM;
-            return HotelCatalogSearchMode.MATCH_RADIUS_30KM;
+            if (radiusKm == 30.0) return HotelCatalogSearchMode.MATCH_RADIUS_30KM;
+            return HotelCatalogSearchMode.MATCH_RADIUS_50KM;
         }
 
         if (radiusKm == 5.0) return HotelCatalogSearchMode.STADIUM_RADIUS_5KM;
         if (radiusKm == 15.0) return HotelCatalogSearchMode.STADIUM_RADIUS_15KM;
-        return HotelCatalogSearchMode.STADIUM_RADIUS_30KM;
+        if (radiusKm == 30.0) return HotelCatalogSearchMode.STADIUM_RADIUS_30KM;
+        return HotelCatalogSearchMode.STADIUM_RADIUS_50KM;
     }
 
     private String buildRadiusMessage(HotelCatalogCriteria criteria, double radiusKm) {
@@ -230,7 +278,7 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
                 .map(hotel -> hotelCatalogMapper.toDto(
                         hotel,
                         primaryPhotoUrls.get(hotel.getId()),
-                        null,
+                        getMinimumBasePrice(hotel),
                         null
                 ))
                 .toList();
@@ -348,9 +396,25 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
         return new HotelComputedView(hotel, minPrice, distanceKm);
     }
 
+    private BigDecimal getMinimumBasePrice(Hotel hotel) {
+        if (hotel.getRoomTypes() == null || hotel.getRoomTypes().isEmpty()) {
+            return null;
+        }
+        return hotel.getRoomTypes().stream()
+                .map(RoomType::getBasePrice)
+                .filter(Objects::nonNull)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
     private BigDecimal calculateMinimumHotelPrice(Hotel hotel, HotelCatalogCriteria criteria) {
         LocalDate checkIn = criteria.getCheckInDate();
         LocalDate checkOut = criteria.getCheckOutDate();
+
+        if (checkIn == null || checkOut == null) {
+            return getMinimumBasePrice(hotel);
+        }
+
         int numberOfRooms = criteria.getNumberOfRooms() == null ? 1 : criteria.getNumberOfRooms();
 
         BigDecimal minPrice = null;
@@ -472,9 +536,10 @@ public class HotelCatalogServiceImpl implements HotelCatalogService {
             }
         }
 
-        if (isSortingByPrice(pageable)) {
-            validateDateRange(criteria.getCheckInDate(), criteria.getCheckOutDate());
-        }
+        // Allow sorting by base price if dates are absent
+        // if (isSortingByPrice(pageable)) {
+        //     validateDateRange(criteria.getCheckInDate(), criteria.getCheckOutDate());
+        // }
     }
 
     private boolean hasPriceFilter(HotelCatalogCriteria criteria) {

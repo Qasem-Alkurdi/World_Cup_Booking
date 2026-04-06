@@ -9,7 +9,6 @@ import com.worldcup.hotelbooking.notification.NotificationService;
 import com.worldcup.hotelbooking.payment.PaymentRepository;
 import com.worldcup.hotelbooking.review.ReviewRepository;
 import com.worldcup.hotelbooking.security.RefreshTokenRepository;
-import com.worldcup.hotelbooking.user.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

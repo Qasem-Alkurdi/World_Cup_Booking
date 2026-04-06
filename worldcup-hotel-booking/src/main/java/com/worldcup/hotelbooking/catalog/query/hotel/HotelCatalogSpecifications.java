@@ -172,10 +172,7 @@ public class HotelCatalogSpecifications {
         };
     }
 
-    public static Specification<Hotel> hasAvailability(
-            LocalDate checkIn,
-            LocalDate checkOut) {
-
+    public static Specification<Hotel> hasAvailability(LocalDate checkIn, LocalDate checkOut) {
         return (root, query, cb) -> {
 
             if (checkIn == null || checkOut == null) {
@@ -192,14 +189,12 @@ public class HotelCatalogSpecifications {
 
             Subquery<Long> subquery = query.subquery(Long.class);
             Root<BookingRoom> bookingRoomRoot = subquery.from(BookingRoom.class);
+            Join<BookingRoom, Booking> bookingJoin = bookingRoomRoot.join("booking");
 
-            Join<BookingRoom, Booking> bookingJoin =
-                    bookingRoomRoot.join("booking");
+            Expression<Long> bookedRoomsSum =
+                    cb.coalesce(cb.sum(bookingRoomRoot.get("numberOfRooms")), 0L);
 
-            Expression<Long> sumExpression =
-                    cb.sum(bookingRoomRoot.get("numberOfRooms"));
-
-            subquery.select(cb.coalesce(sumExpression, 0L));
+            subquery.select(bookedRoomsSum);
 
             Predicate sameRoomType =
                     cb.equal(bookingRoomRoot.get("roomType"), roomJoin);
@@ -218,11 +213,9 @@ public class HotelCatalogSpecifications {
 
             subquery.where(cb.and(sameRoomType, overlap, statusPredicate));
 
-            Expression<Integer> totalRooms = roomJoin.get("totalRooms");
-
             return cb.greaterThan(
-                    totalRooms.as(Long.class),
-                    subquery.getSelection()
+                    roomJoin.get("totalRooms").as(Long.class),
+                    subquery
             );
         };
     }
