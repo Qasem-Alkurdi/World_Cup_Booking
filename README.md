@@ -1,322 +1,204 @@
-# World Cup Hotel Booking — Project Structure
+# 🏆 World Cup Hotel Booking API
 
-This document explains the package/module layout for the Spring Boot project.
+<p align="center">
+  <b>Scalable • Modular • Production-Ready Backend</b><br>
+  Built with Spring Boot for a World Cup Hotel Booking Platform
+</p>
 
 ---
 
-## Package Tree
+## 🚀 Overview
 
-```text
-com.worldcup.hotelbooking
-│com.worldcup.hotelbooking
-│
-├── availability_pricing
-│   ├── availability
-│   │   ├── AvailabilityController.java
-│   │   ├── AvailabilityService.java
-│   │   └── dto/
-│   │
-│   ├── match
-│   │   ├── Match.java
-│   │   ├── MatchRepository.java
-│   │   ├── MatchService.java
-│   │   ├── MatchController.java
-│   │   └── dto/
-│   │
-│   ├── pricing
-│   │   ├── PricingService.java
-│   │   ├── EnhancedPricingService.java
-│   │   ├── PricingConfig.java
-│   │   └── dto/
-│   │
-│   └── stadium
-│       ├── Stadium.java
-│       ├── StadiumRepository.java
-│       ├── StadiumService.java
-│       ├── StadiumController.java
-│       └── dto/
-│
-├── booking
-│   ├── booking
-│   │   ├── Booking.java
-│   │   ├── BookingRepository.java
-│   │   ├── BookingService.java
-│   │   ├── BookingController.java
-│   │   ├── BookingSpecifications.java
-│   │   ├── BookingMapper.java
-│   │   ├── exceptions/
-│   │   └── dto/
-│   │
-│   ├── bookingroom
-│   │   ├── BookingRoom.java
-│   │   ├── BookingRoomRepository.java
-│   │   ├── BookingRoomService.java
-│   │   ├── BookingRoomController.java
-│   │   ├── BookingRoomMapper.java
-│   │   ├── exceptions/
-│   │   └── dto/
-│   │
-│   └── cancellation
-│       ├── CancellationPolicyService.java
-│       ├── CancellationMapper.java
-│       ├── CancellationResult.java
-│       └── dto/
-│
-├── catalog
-│   ├── hotel
-│   │   ├── Hotel.java
-│   │   ├── HotelRepository.java
-│   │   ├── HotelService.java
-│   │   ├── HotelController.java
-│   │   ├── HotelStatus.java
-│   │   ├── exceptions/
-│   │   ├── mapper/
-│   │   └── dto/
-│   │
-│   ├── query
-│   │   └── hotel
-│   │       ├── HotelCatalogController.java
-│   │       ├── HotelCatalogService.java
-│   │       ├── HotelCatalogServiceImpl.java
-│   │       ├── HotelCatalogSpecifications.java
-│   │       ├── HotelCatalogCriteria.java
-│   │       ├── mapper/
-│   │       └── dto/
-│   │
-│   ├── roomtype
-│   │   ├── RoomType.java
-│   │   ├── RoomTypeRepository.java
-│   │   ├── RoomTypeService.java
-│   │   ├── RoomTypeController.java
-│   │   ├── exceptions/
-│   │   ├── mapper/
-│   │   └── dto/
-│   │
-│   ├── hotelphoto
-│   │   ├── HotelPhoto.java
-│   │   ├── HotelPhotoRepository.java
-│   │   ├── HotelPhotoService.java
-│   │   └── dto/
-│   │
-│   ├── roomtypephoto
-│   │   ├── RoomTypePhoto.java
-│   │   ├── RoomTypePhotoRepository.java
-│   │   ├── RoomTypePhotoService.java
-│   │
-│   └── storage
-│       ├── PhotoUrlResolver.java
-│       └── LocalPhotoUrlResolver.java
-│
-├── payment
-│   └── payment
-│       ├── Payment.java
-│       ├── PaymentRepository.java
-│       ├── PaymentService.java
-│       ├── PaymentController.java
-│       ├── PaymentMapper.java
-│       ├── exceptions/
-│       └── dto/
-│
-├── notification
-│   └── notification
-│       ├── Notification.java
-│       ├── NotificationRepository.java
-│       ├── NotificationService.java
-│       └── dto/
-│
-├── user
-│   └── user
-│       ├── AppUser.java
-│       ├── AppUserRepository.java
-│       ├── AppUserService.java
-│       ├── AppUserController.java
-│       ├── AppUserMapper.java
-│       ├── Role.java
-│       ├── exceptions/
-│       └── dto/
-│
-├── common
-│   ├── enums/
-│   ├── exception/
-│   ├── mapper/
-│   ├── response/
-│   └── OpenApiConfig.java
-│
-└── WorldCupHotelBookingApplication.java
+A full-featured backend system designed to power a **World Cup hotel booking platform**, supporting:
+
+- Hotel discovery & catalog search
+- Booking lifecycle management
+- Payments & refunds
+- Reviews & ratings
+- Real-time chat
+- Tournament (stadiums & matches)
+
+Built using a **modular monolith architecture** with a clear path toward microservices.
+
+---
+
+## 🧠 Architecture
+
+- Feature-based modular design
+- Separation of concerns by domain
+- Microservice-ready structure
+- Clean layering (Controller → Service → Repository)
+
+### Modules
+
+```
+auth | catalog | booking | payment | review | chat | tournament | user | availability_pricing
 ```
 
 ---
 
-## How to Read This Structure
+## ⚙️ Core Features
 
-This layout is **feature-based at the module level** (catalog, booking, payment, …), and **feature-subpackages** inside
-each module (hotel, room, match, …).
+### 🔐 Authentication & Security
 
-Each feature typically contains:
-
-- **Entity (`*.java`)**: JPA model / domain object
-- **Repository**: DB access (`JpaRepository`, custom queries, etc.)
-- **Service**: business logic + orchestration
-- **Controller**: REST endpoints
-- **dto/**: request/response models for API boundaries
-
-> Goal: keep everything related to one feature close together, making it easier to split into microservices later.
+- JWT Authentication (Access + Refresh tokens)
+- Role-based authorization (ADMIN / MANAGER / GUEST)
+- Secure endpoints with Spring Security
 
 ---
 
-## Modules Overview
+### 🏨 Hotel Catalog (CQRS)
 
-### 1) `catalog/`
-
-Responsible for property content and browsing:
-
-- Hotels, room types/rooms
-- Photos for hotels and rooms
-- Filtering, pagination, search (as needed)
-
-**Sub-features**
-
-- `hotel/`: Hotel CRUD + Hotel DTOs
-- `room/`: Room/RoomType CRUD + DTOs
-- `hotelphoto/`, `roomphoto/`: Photo metadata + DB relations (file storage handled elsewhere)
+- Advanced filtering & pagination
+- Read-optimized query side
+- Location-aware search (distance-based)
 
 ---
 
-### 2) `availability_pricing/`
+### 📅 Booking System
 
-Responsible for availability windows and pricing logic:
-
-- Stadiums and matches (World Cup context)
-- Availability calculation per room type/room
-- Pricing calculation rules
-
-**Sub-features**
-
-- `stadium/`: Stadium data (location, city, etc.)
-- `match/`: Matches and dates (used for peak pricing / demand)
-- `availability/`: endpoints + service for availability checks
-- `pricing/`: endpoints + service for pricing computation
-
-> If pricing rules are hard-coded, you may not need a `PricingRule` table.
-> If they become dynamic, add a pricing domain model (rules, seasons, overrides).
+- Create & manage bookings
+- Check-in / Check-out flows
+- Cancellation policies
+- Booking history & search
 
 ---
 
-### 3) `booking/`
+### 💳 Payments
 
-Responsible for the booking lifecycle:
-
-- Create booking
-- Attach one or more booked room types / rooms
-- Cancel booking (based on policy)
-- Booking status transitions
-
-**Sub-features**
-
-- `booking/`: Booking aggregate root + lifecycle endpoints
-- `bookingroom/`: Booking line items (e.g., `BookingRoom` or `BookingRoomType`)
+- Payment intent creation
+- Payment processing
+- Refund system
+- Booking-linked payments
 
 ---
 
-### 4) `payment/`
+### ⭐ Reviews System
 
-Responsible for payment records and payment flow:
-
-- Create payment intent/record
-- Track status
-- Refund handling (if applicable)
-
-**Sub-feature**
-
-- `payment/`: Payment domain + endpoints + DTOs
+- One review per booking
+- Rating & feedback
+- Aggregated hotel ratings
 
 ---
 
-### 5) `notification/`
+### 💬 Chat System
 
-Responsible for notifications and audit log:
-
-- Email/SMS/push send request (optional controller)
-- Log notification attempts/results
-
-**Sub-feature**
-
-- `notification/`: Notification domain + service + DTOs
+- Guest ↔ Hotel communication
+- Conversation-based messaging
 
 ---
 
-### 6) `appUser/`
+### 🏟 Tournament Context
 
-Responsible for appUser management:
-
-- User CRUD
-- Roles/permissions integration (if/when added)
-- Profile data
-
-**Sub-feature**
-
-- `appUser/`: User domain + endpoints + DTOs
+- Stadium management
+- Matches filtering (date, city, stadium)
 
 ---
 
-## Cross-Cutting Concerns — `common/`
+### 📊 Availability & Pricing
 
-### `common/exception/`
-
-- `ApiException`: custom exception type for clean error handling
-- `GlobalExceptionHandler`: centralized exception-to-response mapping
-
-### `common/enums/`
-
-Shared enums used across features (avoid duplication):
-
-- `BookingStatus`
-- `PaymentStatus`
-
-### `common/response/`
-
-Unified API response wrapper:
-
-- `ApiResponse`
-
-### `common/mapper/`
-
-Reusable mapping utilities:
-
-- `EntityMapper` (base mapper interface/helper)
-
-> Tip: keep `common/` minimal. Do **not** move business logic here.
+- Room availability checks
+- Dynamic pricing module
 
 ---
 
-## Naming & Conventions (Recommended)
+## 📄 API Documentation
 
-- **Controllers**: `XController` (REST only; no business logic)
-- **Services**: `XService` (business rules + orchestration)
-- **Repositories**: `XRepository` (DB queries only)
-- **DTOs**: `XRequestDto`, `XResponseDto`
-- **Packages**: lowercase, singular when possible (`hotel`, `room`, `match`)
+Swagger UI:
 
----
-
-## Microservices Readiness Notes
-
-This structure is already close to a microservices split:
-
-- `catalog/**` → `catalog-service`
-- `availability_pricing/**` → `availability-pricing-service`
-- `booking/**` → `booking-service`
-- `payment/**` → `payment-service`
-- `notification/**` → `notification-service`
-- `appUser/**` → `appUser-service`
-
-When splitting:
-
-- Prefer **separate DB per service**
-- Share only **contracts** (OpenAPI schemas / event schemas), not shared domain code.
+```
+http://localhost:8080/swagger-ui.html
+```
 
 ---
 
-## Entry Point
+## 🧪 Testing
 
-- `WorldCupHotelBookingApplication.java`: Spring Boot application bootstrap.
+This project includes strong test coverage:
+
+- ✅ **399 Unit Tests**
+- ✅ **428 Postman Tests**
+
+### Run Unit Tests
+
+```bash
+./mvnw test
+```
+
+### Postman Collection
+
+```
+postman/No Spelling Mistakes - Full Collection.postman_collection.json
+```
+
+---
+
+## 🛠 Tech Stack
+
+- Java 21
+- Spring Boot
+- Spring Security (JWT)
+- Spring Data JPA
+- PostgreSQL + PostGIS
+- Maven
+- Swagger / OpenAPI
+- JUnit + Integration Testing
+- Postman
+
+---
+
+## ▶️ Running the Project
+
+```bash
+./mvnw spring-boot:run
+```
+
+OR
+
+```bash
+./mvnw clean install
+java -jar target/*.jar
+```
+
+---
+
+## 🔐 Security Flow (JWT)
+
+1. User logs in → receives Access + Refresh Token
+2. Access Token used for API calls
+3. Refresh Token used to generate new Access Token
+4. Token revocation supported
+
+---
+
+## 🧩 Design Highlights
+
+- Feature-first architecture (not layered)
+- CQRS applied in catalog queries
+- DTO-based API boundaries
+- Centralized exception handling
+- Extensible pricing module
+
+---
+
+## 📈 Future Improvements
+
+- Full microservices split
+- Event-driven architecture (Kafka)
+- Distributed caching (Redis)
+- Payment gateway integration (Stripe)
+
+---
+
+## 🏁 Conclusion
+
+A **real-world, production-ready backend system** demonstrating:
+
+- Clean architecture
+- High test coverage
+- Scalable design
+- Strong domain modeling
+
+---
+
+⭐ Star the repo if you like it!
