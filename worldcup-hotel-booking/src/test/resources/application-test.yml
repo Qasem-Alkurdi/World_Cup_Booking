@@ -1,7 +1,11 @@
 spring:
   application:
     name: worldcup-hotel-booking
-
+  datasource:
+    url: jdbc:postgresql://localhost:5432/worldcup_test
+    username: qasem_alkurdi
+    password: 197019742005
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update

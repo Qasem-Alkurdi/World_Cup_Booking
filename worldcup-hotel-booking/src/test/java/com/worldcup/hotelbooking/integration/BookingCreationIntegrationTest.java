@@ -3,6 +3,7 @@ package com.worldcup.hotelbooking.integration;
 import com.worldcup.hotelbooking.BaseIntegrationTest;
 import com.worldcup.hotelbooking.auth.LoginRequest;
 import com.worldcup.hotelbooking.auth.LoginResponse;
+import com.worldcup.hotelbooking.availability_pricing.pricing.EnhancedPricingServiceImpl;
 import com.worldcup.hotelbooking.booking.booking.Booking;
 import com.worldcup.hotelbooking.booking.booking.BookingRepository;
 import com.worldcup.hotelbooking.booking.booking.BookingRequestDto;
@@ -47,6 +48,9 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -87,6 +91,9 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
     @MockitoBean
     private NotificationService notificationService;
 
+    @MockitoBean
+    private EnhancedPricingServiceImpl enhancedPricingServiceImpl;
+
     private Long hotelId;
     private Long roomTypeId;
     private Long userId;
@@ -94,6 +101,8 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        reset(enhancedPricingServiceImpl);
+
         Stadium stadium = new Stadium();
         stadium.setName("Test Stadium");
         stadium.setCity("Test City");
@@ -178,6 +187,15 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void createBooking_shouldSucceedWithCorrectPricing() throws Exception {
+        doReturn(new BigDecimal("450.00"))
+                .when(enhancedPricingServiceImpl)
+                .calculateTotalStayPrice(
+                        any(Booking.class),
+                        any(Hotel.class),
+                        any(RoomType.class),
+                        anyInt()
+                );
+
         BookingRoomRequestDto roomRequest = new BookingRoomRequestDto();
         roomRequest.setRoomTypeId(roomTypeId);
         roomRequest.setNumberOfRooms(1);
@@ -208,8 +226,7 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
         assertThat(response.getStatus()).isEqualTo(Booking.BookingStatus.PENDING);
         assertThat(response.getCheckInDate()).isEqualTo(LocalDate.of(2026, 6, 14));
         assertThat(response.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 6, 17));
-        assertThat(response.getTotalPrice()).isNotNull();
-        assertThat(response.getTotalPrice().compareTo(BigDecimal.ZERO)).isGreaterThanOrEqualTo(0);
+        assertThat(response.getTotalPrice()).isEqualByComparingTo("450.00");
 
         assertThat(response.getRooms()).hasSize(1);
         assertThat(response.getRooms().get(0).getRoomTypeName()).isEqualTo("Standard Double");
@@ -217,13 +234,29 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
 
         Booking savedBooking = bookingRepository.findByIdWithRooms(response.getId()).orElseThrow();
         assertThat(savedBooking.getStatus()).isEqualTo(Booking.BookingStatus.PENDING);
-        assertThat(savedBooking.getTotalPrice()).isEqualByComparingTo(response.getTotalPrice());
+        assertThat(savedBooking.getTotalPrice()).isEqualByComparingTo("450.00");
         assertThat(savedBooking.getBookingRooms()).hasSize(1);
         assertThat(savedBooking.getBookingRooms().get(0).getRoomType().getId()).isEqualTo(roomTypeId);
+
+        verify(enhancedPricingServiceImpl).calculateTotalStayPrice(
+                any(Booking.class),
+                any(Hotel.class),
+                any(RoomType.class),
+                anyInt()
+        );
     }
 
     @Test
     void createBooking_shouldFailWhenNoAvailability() throws Exception {
+        doReturn(new BigDecimal("4500.00"))
+                .when(enhancedPricingServiceImpl)
+                .calculateTotalStayPrice(
+                        any(Booking.class),
+                        any(Hotel.class),
+                        any(RoomType.class),
+                        anyInt()
+                );
+
         BookingRoomRequestDto roomRequest = new BookingRoomRequestDto();
         roomRequest.setRoomTypeId(roomTypeId);
         roomRequest.setNumberOfRooms(10);
@@ -263,5 +296,12 @@ public class BookingCreationIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message")
                         .value(org.hamcrest.CoreMatchers.containsString("Not enough rooms available")));
+
+        verify(enhancedPricingServiceImpl).calculateTotalStayPrice(
+                any(Booking.class),
+                any(Hotel.class),
+                any(RoomType.class),
+                anyInt()
+        );
     }
 }
