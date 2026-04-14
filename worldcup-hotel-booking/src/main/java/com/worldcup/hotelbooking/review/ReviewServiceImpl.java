@@ -118,14 +118,33 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ReviewResponseDto> getHotelReviews(Long hotelId) {
+    public List<ReviewResponseDto> getHotelReviews(Long hotelId, boolean includeHidden) {
         Hotel hotel = hotelRepository.findByIdAndStatusAndIsDeletedFalse(hotelId, APPROVED)
                 .orElseThrow(() -> new HotelNotFoundException(hotelId));
 
-        return reviewRepository.findByHotelAndVisibleTrueOrderByCreatedAtDesc(hotel)
-                .stream()
+        List<Review> reviews = includeHidden
+                ? reviewRepository.findByHotelOrderByCreatedAtDesc(hotel)
+                : reviewRepository.findByHotelAndVisibleTrueOrderByCreatedAtDesc(hotel);
+
+        return reviews.stream()
                 .map(ReviewMapper::toResponse)
                 .toList();
+    }
+
+    @Override
+    @Caching(evict = {
+            @CacheEvict(value = "hotelById", allEntries = true),
+            @CacheEvict(value = "hotelList", allEntries = true),
+            @CacheEvict(value = "myHotels", allEntries = true)
+    })
+    public ReviewResponseDto toggleVisibility(Long reviewId) {
+        Review review = reviewRepository.findDetailedById(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
+
+        review.setVisible(!review.isVisible());
+        recalculateHotelRating(review.getHotel());
+
+        return ReviewMapper.toResponse(review);
     }
 
     @Override

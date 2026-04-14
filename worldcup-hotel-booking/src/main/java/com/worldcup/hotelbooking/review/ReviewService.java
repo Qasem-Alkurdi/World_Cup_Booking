@@ -14,7 +14,9 @@ public interface ReviewService {
 
     void delete(Long reviewId);
 
-    List<ReviewResponseDto> getHotelReviews(Long hotelId);
+    List<ReviewResponseDto> getHotelReviews(Long hotelId, boolean includeHidden);
+
+    ReviewResponseDto toggleVisibility(Long reviewId);
 
     ReviewResponseDto getById(Long reviewId);
 

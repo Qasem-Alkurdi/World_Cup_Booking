@@ -15,6 +15,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = {"user"})
     List<Review> findByHotelAndVisibleTrueOrderByCreatedAtDesc(Hotel hotel);
 
+    @EntityGraph(attributePaths = {"user"})
+    List<Review> findByHotelOrderByCreatedAtDesc(Hotel hotel);
+
     @EntityGraph(attributePaths = {"user", "hotel", "booking"})
     Optional<Review> findDetailedById(Long id);
 
