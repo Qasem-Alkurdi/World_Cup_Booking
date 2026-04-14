@@ -9,6 +9,9 @@ import com.worldcup.hotelbooking.catalog.roomtype.dto.RoomTypeAvailabilityCriter
 import com.worldcup.hotelbooking.catalog.roomtype.exception.RoomTypeAlreadyExistsException;
 import com.worldcup.hotelbooking.catalog.roomtype.exception.RoomTypeNotFoundException;
 import com.worldcup.hotelbooking.catalog.roomtype.mapper.RoomTypeMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +56,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
      * Cached by hotelId — evicted when any room type under that hotel is created,
      * replaced, or deleted.
      */
-    // @Cacheable(value = "roomTypesByHotel", key = "#hotelId")
+    @Cacheable(value = "roomTypesByHotel", key = "#hotelId")
     @Transactional(readOnly = true)
     @Override
     public List<RoomType> findByHotel(Long hotelId) {
@@ -68,7 +71,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
      * Cached by composite key hotelId + roomTypeId.
      * Evicted when that specific room type is replaced or deleted.
      */
-    //@Cacheable(value = "roomTypeById", key = "#hotelId + '_' + #roomTypeId")
+    @Cacheable(value = "roomTypeById", key = "#hotelId + '_' + #roomTypeId")
     @Transactional(readOnly = true)
     @Override
     public RoomType findById(Long hotelId, Long roomTypeId) {
@@ -78,15 +81,15 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return getRoomTypeOrThrow(hotelId, roomTypeId);
     }
 
-    //    @Caching(evict = {
-//            @CacheEvict(value = "hotelById",        key = "#id"),
-//            @CacheEvict(value = "hotelList",        allEntries = true),
-//            @CacheEvict(value = "myHotels",         allEntries = true),
-//            @CacheEvict(value = "hotelPhotos",      key = "#id"),
-//            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
-//            @CacheEvict(value = "roomTypeById",     allEntries = true),
-//            @CacheEvict(value = "roomTypePhotos",   allEntries = true)
-//    })
+    @Caching(evict = {
+            @CacheEvict(value = "hotelById", key = "#id"),
+            @CacheEvict(value = "hotelList", allEntries = true),
+            @CacheEvict(value = "myHotels", allEntries = true),
+            @CacheEvict(value = "hotelPhotos", key = "#id"),
+            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
+            @CacheEvict(value = "roomTypeById", allEntries = true),
+            @CacheEvict(value = "roomTypePhotos", allEntries = true)
+    })
     @Override
     public RoomType create(Long hotelId, RoomType roomType) {
         Hotel hotel = getApprovedActiveHotel(hotelId);
@@ -102,15 +105,15 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return roomTypeRepository.save(roomType);
     }
 
-    //    @Caching(evict = {
-//            @CacheEvict(value = "hotelById",        key = "#id"),
-//            @CacheEvict(value = "hotelList",        allEntries = true),
-//            @CacheEvict(value = "myHotels",         allEntries = true),
-//            @CacheEvict(value = "hotelPhotos",      key = "#id"),
-//            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
-//            @CacheEvict(value = "roomTypeById",     allEntries = true),
-//            @CacheEvict(value = "roomTypePhotos",   allEntries = true)
-//    })
+    @Caching(evict = {
+            @CacheEvict(value = "hotelById", key = "#id"),
+            @CacheEvict(value = "hotelList", allEntries = true),
+            @CacheEvict(value = "myHotels", allEntries = true),
+            @CacheEvict(value = "hotelPhotos", key = "#id"),
+            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
+            @CacheEvict(value = "roomTypeById", allEntries = true),
+            @CacheEvict(value = "roomTypePhotos", allEntries = true)
+    })
     @Transactional
     @Override
     public RoomType replace(Long hotelId, Long roomTypeId, ReplaceRoomTypeRequestDto dto) {
@@ -136,15 +139,15 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     }
 
 
-    //    @Caching(evict = {
-//            @CacheEvict(value = "hotelById",        key = "#id"),
-//            @CacheEvict(value = "hotelList",        allEntries = true),
-//            @CacheEvict(value = "myHotels",         allEntries = true),
-//            @CacheEvict(value = "hotelPhotos",      key = "#id"),
-//            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
-//            @CacheEvict(value = "roomTypeById",     allEntries = true),
-//            @CacheEvict(value = "roomTypePhotos",   allEntries = true)
-//    })
+    @Caching(evict = {
+            @CacheEvict(value = "hotelById", key = "#id"),
+            @CacheEvict(value = "hotelList", allEntries = true),
+            @CacheEvict(value = "myHotels", allEntries = true),
+            @CacheEvict(value = "hotelPhotos", key = "#id"),
+            @CacheEvict(value = "roomTypesByHotel", key = "#id"),
+            @CacheEvict(value = "roomTypeById", allEntries = true),
+            @CacheEvict(value = "roomTypePhotos", allEntries = true)
+    })
     @Override
     public void delete(Long hotelId, Long roomTypeId) {
         // يضمن الفندق موجود وغير محذوف + approved
