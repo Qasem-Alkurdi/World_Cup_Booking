@@ -1,9 +1,8 @@
 package com.worldcup.hotelbooking.catalog.hotel.dto;
 
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
 
-@AllArgsConstructor
+
 public record ReplaceHotelRequestDto(@NotBlank String name, String description, @Email String contactEmail,
                                      String contactPhone, @NotBlank String country, @NotBlank String city,
                                      String addressLine,

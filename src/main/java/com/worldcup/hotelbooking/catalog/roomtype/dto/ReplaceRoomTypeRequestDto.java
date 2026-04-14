@@ -4,14 +4,13 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 
 /**
  * @param hasPrivateBathroom amenities (PUT => required to avoid accidental resets)
  */
-@AllArgsConstructor
+
 public record ReplaceRoomTypeRequestDto(@NotBlank String name, String description, @NotNull @Min(0) Integer maxAdults,
                                         @NotNull @Min(0) Integer maxChildren,
                                         @DecimalMin(value = "0.01") BigDecimal roomSizeSqm,
